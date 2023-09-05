@@ -12,7 +12,7 @@ from IPython.display import display
 from batchgenerators.augmentations.utils import resize_segmentation
 from PIL import Image
 from scipy import stats
-from CA import AE
+from ConvAE.model import AE
 
 from utils.dataset import AddPadding, CenterCrop, OneHot, DataLoader
 from utils.preprocess import preprocess, median_spacing_target
@@ -133,7 +133,7 @@ def testing(ae, data_path:os.PathLike,
     """
 
     patient_info = np.load(os.path.join(data_path,'preprocessed/patient_info.npy'), allow_pickle=True).item() if patient_info=='default' else patient_info
-    current_spacing = median_spacing_target(os.path.join(data_path), 'preprocessed') if current_spacing=='default' else current_spacing
+    current_spacing = median_spacing_target(os.path.join(data_path, 'preprocessed')) if current_spacing=='default' else current_spacing
     folder_predictions=os.path.join(data_path, 'structured') if folder_predictions==None else folder_predictions
     folder_out = os.path.join(data_path, 'reconstructions')if folder_out==None else folder_out
     ae.eval()
@@ -368,6 +368,7 @@ def plot_correlation_results(results):
         #     current_axe.set_ylim(bottom=0, top=1)
     fig.suptitle("Plotted measures")
     fig.tight_layout()
+    plt.savefig('src/eval_results')
   
 def display_plots(plots):
     plt.rcParams['xtick.labelsize'] = 30#'x-large'
@@ -408,12 +409,14 @@ def display_plots(plots):
     grid = Image.fromarray(grid.astype(np.uint8))
     display(grid.resize((900,600), resample=Image.LANCZOS))
 
-def display_image(img):
+def display_image(img, name):
     img = np.rint(img)
     img = np.rint(img / 3 * 255)
     display(Image.fromarray(img.astype(np.uint8)))
+    Image.fromarray(img.astype(np.uint8)).save(f'src/eval_results/{name}')
   
-def display_difference(prediction, reference):
+def display_difference(prediction, reference, name):
     difference = np.zeros(list(prediction.shape[:2]) + [3])
     difference[prediction != reference] = [240,52,52]
     display(Image.fromarray(difference.astype(np.uint8)))
+    Image.fromarray(difference.astype(np.uint8)).save(f'src/eval_results/{name}')

@@ -1,8 +1,8 @@
 import sys, importlib
 import os
 import numpy as np
-importlib.reload(sys.modules['ConvAE'])
-importlib.reload(sys.modules['utils'])
+#importlib.reload(sys.modules['ConvAE'])
+#importlib.reload(sys.modules['utils'])
 
 import torch
 import torchvision
@@ -14,7 +14,7 @@ from ConvAE.utils import plot_history
 from utils.preprocess import transform_aug
 from utils.dataset import DataLoader, train_val_test
 
-DATA_PATH = 'data/synthstrip_data_v1.2'
+DATA_PATH = 'data/Kaggle/'
 CUSTOM_PARAMS = False
 
 '''
@@ -27,12 +27,14 @@ List of args to be implemented:
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    _,_,_ = train_val_test(data_path='data/liver')
+    #_,_,_ = train_val_test(data_path=DATA_PATH)
 
+    prepro_path = os.path.join(DATA_PATH, "preprocessed")
+    
     if CUSTOM_PARAMS:
         optimal_parameters = np.load(
             os.path.join(
-                "data/liver/preprocessed", "optimal_parameters.npy"), 
+                prepro_path, "optimal_parameters.npy"), 
             allow_pickle=True).item()
     else:
         optimal_parameters = {
@@ -46,7 +48,7 @@ def main():
             "settling_epochs_BKGDLoss": 10,
             "settling_epochs_BKMSELoss": 0
         }
-        np.save(os.path.join("data/liver/preprocessed/", "optimal_parameters"), optimal_parameters)
+        np.save(os.path.join(prepro_path, "optimal_parameters"), optimal_parameters)
 
     assert optimal_parameters is not None, "Be sure to continue with a working set of hyperparameters"
 
@@ -72,9 +74,9 @@ def main():
     plot_history(
         ae.training_routine(
             range(start,500),
-            DataLoader(data_path='data/liver', mode='train', batch_size=BATCH_SIZE, transform=transform_augmentation if DA else transform),
-            DataLoader(data_path='data/liver', mode='test', batch_size=BATCH_SIZE, transform=transform),
-            "data/liver/checkpoints/"
+            DataLoader(data_path=DATA_PATH, mode='train', batch_size=BATCH_SIZE, transform=transform_augmentation if DA else transform),
+            DataLoader(data_path=DATA_PATH, mode='test', batch_size=BATCH_SIZE, transform=transform),
+            os.path.join(DATA_PATH, "checkpoints/")
         )
     )
     

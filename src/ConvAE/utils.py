@@ -12,7 +12,6 @@ from ConvAE.model import AE
 #use gpu if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
 def plot_history(history):
     losses = [x['Total'] for x in history]
     plt.plot(losses, '-x', label="loss")
@@ -22,6 +21,7 @@ def plot_history(history):
     plt.title('Losses vs. No. of epochs')
     plt.grid()
     plt.show()
+    plt.savefig('src/logs/')
 
 #######################
 #Hyperparameter Tuning#
@@ -94,37 +94,13 @@ def hyperparameter_tuning(parameters, train_loader, val_loader, transform, trans
 
     return optimal_parameters
 
-###############
-#Checkpointing#
-###############
+def load_opt_params(prepro_path: str):
+    optimal_parameters = np.load(
+        os.path.join(
+            prepro_path, 
+            "optimal_parameters.npy"), 
+        allow_pickle=True).item()
 
-
-def clean_old_checkpoints(ckpt_folder:str, best_keep:int=2, total_keep:int=10):
-    """
-        Is called after each training routine: will keep the {best_keep} best checkpoints, and the other most recent checkpoints for a total of {total_keep checkpoints}. 
-        Others will be deleted.
-        Example: keep 070_best, 077_best, and 0_78, 0_78, ... and some others
-
-        Parameters
-        ----------
-            ckpt_folder: str
-                The string path to the checkpoints folder
-            best_keep: int (default = 2)
-                The number of last best checkoints to keep
-            total_keep: int (default = 10)
-                The total number of checkoints to keep, best and not best included
-    """
-    assert(best_keep <= total_keep)
-    assert(os.path.isdir(ckpt_folder))
-    poor_keep = total_keep - best_keep
-    poor_ckpts = sorted([file for file in os.listdir(ckpt_folder) if "_best" not in file])
-    best_ckpts = sorted([file for file in os.listdir(ckpt_folder) if "_best" in file])
-    if len(poor_ckpts)+len(best_ckpts)>total_keep :
-        if(len(best_ckpts)>best_keep):
-            for file in best_ckpts[:-best_keep] :
-                file_path = os.path.join(ckpt_folder, file)
-                os.remove(file_path)
-        if(len(poor_ckpts)>poor_keep):
-            for file in poor_ckpts[:-poor_keep]:
-                file_path = os.path.join(ckpt_folder, file)
-                os.remove(file_path)
+    assert optimal_parameters is not None, "Be sure to continue with a working set of hyperparameters"
+    
+    return optimal_parameters

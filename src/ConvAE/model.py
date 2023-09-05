@@ -1,13 +1,13 @@
 import os
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 import warnings
 
 from medpy.metric import binary
-from ConvAE.utils import clean_old_checkpoints
 
 #use gpu if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -230,7 +230,7 @@ class AE(nn.Module):
             os.mkdir(ckpt_folder)
         history = []
         best_acc = None
-        for epoch in epochs:
+        for epoch in tqdm(epochs, desc= 'Epochs progress: '):
             self.train()
             for patient in train_loader:
                 for batch in patient:
@@ -320,4 +320,38 @@ class AE(nn.Module):
         self.load_state_dict(ckpt["AE"])
         self.optimizer.load_state_dict(ckpt["AE_optim"])
         if eval: self.eval()
+    
+###############
+#Checkpointing#
+###############
+
+def clean_old_checkpoints(ckpt_folder:str, best_keep:int=2, total_keep:int=10):
+    """
+        Is called after each training routine: will keep the {best_keep} best checkpoints, and the other most recent checkpoints for a total of {total_keep checkpoints}. 
+        Others will be deleted.
+        Example: keep 070_best, 077_best, and 0_78, 0_78, ... and some others
+
+        Parameters
+        ----------
+            ckpt_folder: str
+                The string path to the checkpoints folder
+            best_keep: int (default = 2)
+                The number of last best checkoints to keep
+            total_keep: int (default = 10)
+                The total number of checkoints to keep, best and not best included
+    """
+    assert(best_keep <= total_keep)
+    assert(os.path.isdir(ckpt_folder))
+    poor_keep = total_keep - best_keep
+    poor_ckpts = sorted([file for file in os.listdir(ckpt_folder) if "_best" not in file])
+    best_ckpts = sorted([file for file in os.listdir(ckpt_folder) if "_best" in file])
+    if len(poor_ckpts)+len(best_ckpts)>total_keep :
+        if(len(best_ckpts)>best_keep):
+            for file in best_ckpts[:-best_keep] :
+                file_path = os.path.join(ckpt_folder, file)
+                os.remove(file_path)
+        if(len(poor_ckpts)>poor_keep):
+            for file in poor_ckpts[:-poor_keep]:
+                file_path = os.path.join(ckpt_folder, file)
+                os.remove(file_path)
     

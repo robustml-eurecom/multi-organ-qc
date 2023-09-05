@@ -4,12 +4,13 @@ import shutil
 import warnings
 import numpy as np
 import nibabel as nib
+from tqdm import tqdm
 
 from typing import Callable
 from utils.common import ignore_directories
 
 import torchvision
-from quality_control_CMR.utils.dataset import train_val_test, AddPadding, CenterCrop, OneHot, ToTensor, MirrorTransform, SpatialTransform
+from utils.dataset import AddPadding, CenterCrop, OneHot, ToTensor, MirrorTransform, SpatialTransform
 
 
 from scipy.ndimage import binary_fill_holes
@@ -148,7 +149,7 @@ def structure_dataset(data_path:str,
     os.makedirs(destination_folder) if not os.path.exists(destination_folder) else None
 
 
-    for i in range(len(mask_paths)):
+    for i in tqdm(range(len(mask_paths)), desc= 'Mask prepro Progress bar'):
         mask_path = mask_paths[i]
         image_path = image_paths[i] if image_paths is not None else None
         convert_mask = True if mask_path.endswith(".nii") else False
@@ -245,7 +246,7 @@ def generate_patient_info(data_path:str,
     for id in skip:
         patient_ids.remove(id) # removing absent images or masks
     patient_info = {}
-    for id in patient_ids:
+    for id in tqdm(range(len(patient_ids)), desc = 'Generate info progress Bar'):
         patient_folder = os.path.join(dataset_folder, 'patient{:03d}'.format(id))
         image = nib.load(os.path.join(patient_folder, fileName))
         patient_info[id] = {} # Initialising the dict for specified id
@@ -348,11 +349,11 @@ def preprocess(data_path:str,
     get_fname = lambda : "mask.nii.gz"
 
     # Getting patient_info
-    if patient_info=='default' and os.path.isfile(os.path.join(data_path), 'processed/patient_info.npy'):
+    if patient_info=='default' and os.path.isfile(os.path.join(data_path, 'preprocessed/patient_info.npy')):
         patient_info = np.load(os.path.join(data_path, 'preprocessed/patient_info.npy'), allow_pickle=True).item()
-    if patient_info=='default' and not os.path.isfile(os.path.join(data_path), 'processed/patient_info.npy'):
+    if patient_info=='default' and not os.path.isfile(os.path.join(data_path, 'preprocessed/patient_info.npy')):
         message="patient_info doesn't exist, generating new patient_info from {data_path}/structured"
-        warnings.warn(message, FileNotFoundError)
+        warnings.warn(message, UserWarning)
         patient_info = generate_patient_info(data_path)
 
     
@@ -362,7 +363,7 @@ def preprocess(data_path:str,
 
     patient_ids = [i for i in list(patient_info.keys()) if i not in skip] if patient_ids =='default' else patient_ids
 
-    for id in patient_ids:
+    for id in tqdm(range(len(patient_ids)), desc = 'Prepro Progress Bar'):
         patient_folder = get_patient_folder(folder_in, id)
         images = []
         fname = get_fname()

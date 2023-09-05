@@ -1,6 +1,11 @@
 data/Kaggle
 data/MSD/
 data/synthstrip_data_v1.2/
+src/test_results/
+src/eval_results/
+src/logs/
+
+src/dummy.py
 
 *.csv
 *.xlsx

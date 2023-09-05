@@ -1,8 +1,8 @@
 import sys, importlib
 import os
 import numpy as np
-#importlib.reload(sys.modules['ConvAE'])
-#importlib.reload(sys.modules['utils'])
+importlib.reload(sys.modules['ConvAE'])
+importlib.reload(sys.modules['utils'])
 
 from utils.dataset import train_val_test
 

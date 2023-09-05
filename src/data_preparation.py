@@ -1,16 +1,12 @@
 import os
-import json
 import numpy as np
-import torchvision
 
 from utils.preprocess import (
     generate_patient_info,
     preprocess,
     structure_dataset, 
-    find_segmentations,
-    find_pairs)
-
-from utils.dataset import train_val_test
+    find_segmentations
+    )
 
 DATA_PATH = 'data/Kaggle/'
 SEG_AREA = 'liver_tumor_segmentation'
@@ -44,7 +40,7 @@ def main():
 
     structure_dataset(data_path = DATA_PATH, mask_paths=segmentations_paths, maskName="mask.nii.gz", delete=delete)
 
-    _ = generate_patient_info(folder=os.path.join(DATA_PATH, "structured/"))
+    _ = generate_patient_info(data_path=DATA_PATH, dataset_folder="structured/")
     preprocess(data_path=DATA_PATH)
     
 if __name__ == '__main__':
