@@ -4,14 +4,18 @@ import os
 from typing import Callable
 import nibabel as nib
 import matplotlib.pyplot as plt
+from tqdm import tqdm
+
 import torch
 import torchvision
+
 import pandas as pd
 import seaborn as sns
 from IPython.display import display
 from batchgenerators.augmentations.utils import resize_segmentation
 from PIL import Image
 from scipy import stats
+
 from ConvAE.model import AE
 
 from utils.dataset import AddPadding, CenterCrop, OneHot, DataLoader
@@ -139,7 +143,7 @@ def testing(ae, data_path:os.PathLike,
     ae.eval()
     with torch.no_grad():
         results = {}
-        for patient in test_loader:
+        for patient in tqdm(test_loader, desc="Loading test for evaluation: "):
             id = patient.dataset.id
             prediction, reconstruction = [], []
             for batch in patient: 
@@ -166,21 +170,14 @@ def testing(ae, data_path:os.PathLike,
             )
     return results
 
-def generate_testing_set(ae:AE , data_path:os.PathLike, alter_image:Callable, transform:torchvision.transforms.Compose, test_ids:list='default' ):
+def generate_testing_set(ae:AE , data_path:os.PathLike, transform:torchvision.transforms.Compose, test_ids:list='default' ):
     """
-        Given an alter_image function:
-        - Will generate an altered nii file of the original mask in {data_path}/measures/structured_model
-        - Will then save the preprocessed altered patients in {data_path}/measures/preprocessed_model
-        - Will last run the model on the preprocessed_model .npy altered segmentation files to produce model_pGT in {data_path}/measures/pGT
-
         Parameters
         ----------
             ae: AE
                 The auto_encoder, already loaded and set to eval
             data_path: os.PathLike
                 The data_path (eg. 'data/brain')
-            alter_image:Callable
-                The inputed model
             transform:torchvision.transforms.Compose
                 The set of transformations to apply
             test_ids: list (default='default')
@@ -203,18 +200,15 @@ def generate_testing_set(ae:AE , data_path:os.PathLike, alter_image:Callable, tr
     test_ids = np.load(os.path.join(data_path, 'saved_ids.npy'), allow_pickle=True).item().get('test_ids') if test_ids == 'default' else test_ids
 
     # Creates nii.gz for the model_GT, and preprocesses that model_GT for the AE to run
-    # Altered .nii.gz files located in measures/structured_model
-    # Altered preprocessed images located in measures/preprocessed_model
     # See preprocess documentation for more details
     preprocess(
         data_path=data_path,
-        verbose=False,
-        alter_image=alter_image
-        )
+        verbose=False
+    )
     
     test_loader = DataLoader(data_path, 
                              mode='custom',
-                             test_ids=test_ids, 
+                             patient_ids=test_ids, 
                              root_dir=os.path.join(data_path,'measures/preprocessed_model'), 
                              batch_size=BATCH_SIZE, 
                              transform=transform)
@@ -222,6 +216,7 @@ def generate_testing_set(ae:AE , data_path:os.PathLike, alter_image:Callable, tr
     # Evaluates the model_GT and saves in (measures/preprocessed_model) with the trained AE
     _ = testing(
         ae=ae,
+        data_path=data_path,
         test_loader=test_loader,
         patient_info=patient_info,
         folder_predictions=os.path.join(data_path, "measures/preprocessed_model"),
@@ -276,10 +271,10 @@ def compute_correlation_results(data_path, test_ids = 'default', measures = 'bot
             results[key]['dc'] = {}
 
 
-    for id in test_ids:
+    for id in tqdm(test_ids, desc="Generating results: "):
         # Retrieving the paths of all the images to compute results from
-        path_model_GT = os.path.join(data_path, 'measures/structured_model/patient{:03d}/mask.nii.gz').format(id)
         path_GT = os.path.join(data_path, 'structured/patient{:03d}/mask.nii.gz').format(id)
+        path_model_GT = os.path.join(data_path, 'measures/structured_model/patient{:03d}/mask.nii.gz').format(id)
         path_model_pGT = os.path.join(data_path, 'measures/pGT/patient{:03d}/mask.nii.gz').format(id)
         # Retrieving the images
         model_GT = nib.load(path_model_GT).get_fdata()
@@ -368,7 +363,7 @@ def plot_correlation_results(results):
         #     current_axe.set_ylim(bottom=0, top=1)
     fig.suptitle("Plotted measures")
     fig.tight_layout()
-    plt.savefig('src/eval_results')
+    plt.savefig('src/eval_results/correlation_plot.jpg')
   
 def display_plots(plots):
     plt.rcParams['xtick.labelsize'] = 30#'x-large'
@@ -409,14 +404,18 @@ def display_plots(plots):
     grid = Image.fromarray(grid.astype(np.uint8))
     display(grid.resize((900,600), resample=Image.LANCZOS))
 
-def display_image(img, name):
+def display_image(img, patient_id, name):
+    folder_out_img = f'src/evaluations/patient_{patient_id}/'
+    if not os.path.exists(folder_out_img) : os.makedirs(folder_out_img)
     img = np.rint(img)
     img = np.rint(img / 3 * 255)
     display(Image.fromarray(img.astype(np.uint8)))
-    Image.fromarray(img.astype(np.uint8)).save(f'src/eval_results/{name}')
+    Image.fromarray(img.astype(np.uint8)).save(f'{folder_out_img}/{name}')
   
-def display_difference(prediction, reference, name):
+def display_difference(prediction, reference, patient_id, name):
+    folder_out_img = f'src/evaluations/patient_{patient_id}/'
+    if not os.path.exists(folder_out_img) : os.makedirs(folder_out_img)
     difference = np.zeros(list(prediction.shape[:2]) + [3])
     difference[prediction != reference] = [240,52,52]
     display(Image.fromarray(difference.astype(np.uint8)))
-    Image.fromarray(difference.astype(np.uint8)).save(f'src/eval_results/{name}')
+    Image.fromarray(difference.astype(np.uint8)).save(f'{folder_out_img}/{name}')

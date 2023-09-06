@@ -313,8 +313,7 @@ def preprocess_image(image, crop, spacing, spacing_target):
 def preprocess(data_path:str, 
                patient_ids: range='default', 
                patient_info:dict='default', 
-               spacing_target:list='default', 
-               alter_image:Callable=None, 
+               spacing_target:list='default',
                skip: list = [], 
                verbose: bool = False
                ) -> None: 
@@ -322,8 +321,6 @@ def preprocess(data_path:str,
     Produces a .npy for each given patient, it calls process_image and places the output in a new structured tree with root folder_out.\n
     preprocess() also updates the patient_info[id]["processed_shape"] the reflect the new shape from the preprocess.\n
     - If patient_info is not found, new patient_info will be generated.\n
-    - If alter_image is set, then new altered nii images will be generated into {data_path}/measures/structured_model.
-    - If alter_image is set, preprocessed images will be saved in measures/preprocessed_model.
 
     Parameters:
     -----------
@@ -335,8 +332,6 @@ def preprocess(data_path:str,
             The target spacing, usually given by spacing_target()
         get_fname: Callable[[], str]
             A function returning the custom name of the patients masks
-        alter_image: Callable, optional
-            By default None ; will apply the specified alteration to the image before it is saved.
         skip: list, optional
             A list of the ids to skip , optional
         verbose: bool, optional
@@ -344,7 +339,7 @@ def preprocess(data_path:str,
 
     """
     folder_in = os.path.join(data_path, 'structured')
-    folder_out = os.path.join(data_path, 'preprocessed'if alter_image==None else 'measures/preprocessed_model') 
+    folder_out = os.path.join(data_path, 'preprocessed')
     get_patient_folder = lambda folder, id: os.path.join(folder, 'patient{:03d}'.format(id))
     get_fname = lambda : "mask.nii.gz"
 
@@ -373,19 +368,6 @@ def preprocess(data_path:str,
         
         sample = nib.load(fname).get_fdata().astype(int)
         if len(np.shape(sample)) == 4: sample = sample[:,:,:,0] # Removing the time dimension
-        # Apply optional alteration (eg. a model ; used to test the AE) and saves it
-        if alter_image is not None:
-            for i in range(np.shape(sample)[2]):
-                sample[:,:,i] = alter_image(sample[:,:,i])
-
-            folder_out_patient = os.path.join(data_path,'measures/structured_model', f'patient{id:03d}')
-            if not os.path.exists(folder_out_patient) : os.makedirs(folder_out_patient)
-
-            nib.save(
-                    nib.Nifti1Image(sample, patient_info[id]["affine"], patient_info[id]["header"]),
-                    os.path.join(folder_out_patient,'mask.nii.gz')
-                )
-        ### End of Alteration
 
         image, processed_shape = preprocess_image(
             sample,

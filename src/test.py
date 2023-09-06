@@ -28,7 +28,7 @@ def main():
         ae=ae, 
         data_path=DATA_PATH,
         test_loader=DataLoader(data_path=DATA_PATH, mode='test', batch_size=BATCH_SIZE, transform=transform),
-        folder_out='src/test_results',
+        folder_out=os.path.join(DATA_PATH, 'reconstructions'),
         compute_results=False)
     
 
