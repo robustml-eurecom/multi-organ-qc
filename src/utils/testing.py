@@ -405,7 +405,7 @@ def display_plots(plots):
     display(grid.resize((900,600), resample=Image.LANCZOS))
 
 def display_image(img, patient_id, name):
-    folder_out_img = f'src/evaluations/patient_{patient_id}/'
+    folder_out_img = f'evaluations/patient_{patient_id}/'
     if not os.path.exists(folder_out_img) : os.makedirs(folder_out_img)
     img = np.rint(img)
     img = np.rint(img / 3 * 255)
@@ -413,7 +413,7 @@ def display_image(img, patient_id, name):
     Image.fromarray(img.astype(np.uint8)).save(f'{folder_out_img}/{name}')
   
 def display_difference(prediction, reference, patient_id, name):
-    folder_out_img = f'src/evaluations/patient_{patient_id}/'
+    folder_out_img = f'evaluations/patient_{patient_id}/'
     if not os.path.exists(folder_out_img) : os.makedirs(folder_out_img)
     difference = np.zeros(list(prediction.shape[:2]) + [3])
     difference[prediction != reference] = [240,52,52]
