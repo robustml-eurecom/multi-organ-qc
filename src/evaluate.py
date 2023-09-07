@@ -5,7 +5,13 @@ import torch
 
 from utils.testing import display_image, display_difference
 
-DATA_PATH = 'data/Kaggle/'
+'''
+Line arguments to implement:
+    - data path, str
+    - patient id
+'''
+
+DATA_PATH = 'data/liver/'
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def main():

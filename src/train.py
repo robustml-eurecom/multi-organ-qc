@@ -14,7 +14,7 @@ from ConvAE.utils import plot_history
 from utils.preprocess import transform_aug
 from utils.dataset import DataLoader, train_val_test
 
-DATA_PATH = 'data/Kaggle/'
+DATA_PATH = 'data/liver/'
 CUSTOM_PARAMS = False
 
 '''

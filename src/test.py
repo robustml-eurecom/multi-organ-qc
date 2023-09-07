@@ -10,7 +10,7 @@ from utils.testing import testing
 from utils.dataset import DataLoader
 from utils.preprocess import transform_aug
 
-DATA_PATH = 'data/Kaggle/'
+DATA_PATH = 'data/liver/'
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def main():

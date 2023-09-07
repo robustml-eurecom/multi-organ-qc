@@ -1,4 +1,4 @@
-# _One to rule them all_ : an attempt for a single modular package for multi-disease Quality Control on mpMRI images
+# _One to rule them all_ : an attempt for a single modular package for multi-disease Quality Control on MRI images
 
 ## Steps
 
@@ -59,10 +59,35 @@ Automatically detects the available gpu or cpu. This trains the AutoEncoder net 
 
 ```
 python one-to-rule-them-all/src/train.py
- 
 ```
 
-### Step 4
+### Step 4 Testing & Evaluating
+Test the AE performances on a test set. This saves the reconstructions files in a folder ``` data/organ/reconstructions``` to be used for evaluation. Images are in .nii.gz, and they follow the same skeleton provided in Step 2. To test, run:
+```
+python one-to-rule-them-all/src/test.py
+```
+
+In order to evaluate, simply run:
+
+```
+python one-to-rule-them-all/src/evaluate.py
+```
+
+After selecting a patient ID, the app will save in a dedicated folder (namely ```src/evaluations```) the following png images:
+
+    📦evaluations
+    ┣ 📂patient_ID
+    ┃ ┣ 📜diff_patient_ID.png 
+    ┃ ┣ 📜pred_patient_ID.png
+    ┃ ┗ 📜reconst_patient_ID.png
+    ┗ 📂...
+
+
+Where _diff_patient_ID.png_ stands for the aberration mask after the QC check, _pred_patient_ID.png_ for the segmentations provided, and _reconst_patient_ID.png_ for the AE reconstruction.
+
+_07-09-2023 Update_: 
+* _Patient ID is internally randomically selected. TODO: pass it as a cmd arg_:
+* _You can select IDs coming from the already processed test set. TODO: implement a full pipeline from out-of-data subjects._
 
 
 
