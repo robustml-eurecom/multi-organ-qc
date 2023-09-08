@@ -14,14 +14,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def plot_history(history):
     losses = [x['Total'] for x in history]
-    plt.plot(losses, '-x', label="loss")
+    plt.plot(losses, '-o', label="loss")
     plt.xlabel('epoch')
     plt.ylabel('loss')
     plt.legend()
     plt.title('Losses vs. No. of epochs')
     plt.grid()
     plt.show()
-    plt.savefig('src/logs/')
+    plt.savefig('src/logs/train_loss.png')
 
 #######################
 #Hyperparameter Tuning#
