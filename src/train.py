@@ -1,15 +1,14 @@
 import sys, importlib
 import os
 import numpy as np
-#importlib.reload(sys.modules['ConvAE'])
-#importlib.reload(sys.modules['utils'])
 
 import torch
-import torchvision
 
 from ConvAE.model import AE
+from ConvAE.model_v2 import ConvAutoencoder
 from ConvAE.config import KEYS
 from ConvAE.utils import plot_history
+from ConvAE.loss import BKGDLoss, BKMSELoss
 
 from utils.preprocess import transform_aug
 from utils.dataset import DataLoader, train_val_test
@@ -40,11 +39,18 @@ def main():
         optimal_parameters = {
             "BATCH_SIZE": 8,
             "DA": False,
-            "latent_size": 100,
+            "in_channels": 4,
+            "channel_config": [32, 32, 64, 64, 64, 128],
+            "latent_channels": 1028,
+            "activation": "leaky_relu",
             "optimizer": torch.optim.Adam,
             "lr": 2e-4,
             "weight_decay": 1e-5,
-            "functions": ["BKGDLoss", "BKMSELoss"],
+            "functions": {
+                "BKGDLoss": BKGDLoss(), 
+                "BKMSELoss": BKMSELoss(),
+                },
+            #"functions": ["BKGDLoss", "BKMSELoss"],
             "settling_epochs_BKGDLoss": 10,
             "settling_epochs_BKMSELoss": 0
         }
@@ -55,11 +61,10 @@ def main():
     BATCH_SIZE = optimal_parameters["BATCH_SIZE"]
     DA = optimal_parameters["DA"]
 
-    #train_ids = np.load('./data/liver/saved_ids.npy', allow_pickle=True).item().get('train_ids')
-    #val_ids = np.load('./data/liver/saved_ids.npy', allow_pickle=True).item().get('val_ids')
+    #ae = AE(keys=KEYS, **optimal_parameters).to(device)
+    ae = ConvAutoencoder(keys=KEYS, **optimal_parameters).to(device)
+    print(ae)
     
-    ae = AE(keys=KEYS, **optimal_parameters).to(device)
-
     ckpt = None
     if ckpt is not None:
         ckpt = torch.load(ckpt)
@@ -71,7 +76,7 @@ def main():
     
     transform, transform_augmentation = transform_aug()
     
-    plot_history(
+    plot_history(   
         ae.training_routine(
             range(start,500),
             DataLoader(data_path=DATA_PATH, mode='train', batch_size=BATCH_SIZE, transform=transform_augmentation if DA else transform),

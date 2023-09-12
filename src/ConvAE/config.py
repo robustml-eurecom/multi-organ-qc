@@ -24,7 +24,6 @@ rules = [
     '"settling_epochs_BKMSELoss" == 0 or "BKMSELoss" in "functions"',
     '"BKGDLoss" not in "functions" or "settling_epochs_BKGDLoss" <= "tuning_epochs"',
     '"BKMSELoss" not in "functions" or "settling_epochs_BKMSELoss" <= "tuning_epochs"',
-    #'"BKGDLoss" not in "functions" or "settling_epochs_BKGDLoss" >= "settling_epochs_BKMSELoss"'
 ]
 
 

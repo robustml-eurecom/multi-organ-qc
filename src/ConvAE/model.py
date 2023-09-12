@@ -20,7 +20,7 @@ class AE(nn.Module):
         if not all([len(cls)<=3 for cls in keys]): warnings.warn("Using key labels with length >3 will lead to display incoherences")
 
         super().__init__()
-        self.init_layers(kwargs["latent_size"])
+        self.init_layers(kwargs["latent_channels"])
         self.apply(self.weight_init)
         self.keys = keys
         self.loss_function = self.Loss(kwargs["functions"], kwargs["settling_epochs_BKGDLoss"], kwargs["settling_epochs_BKMSELoss"])
@@ -32,7 +32,7 @@ class AE(nn.Module):
         )
         
 
-    def init_layers(self, latent_size):
+    def init_layers(self, latent_channels):
         self.encoder = nn.Sequential(
             nn.Conv2d(in_channels=4, out_channels=32, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(num_features=32),
@@ -79,11 +79,11 @@ class AE(nn.Module):
             nn.LeakyReLU(.2),
             nn.Dropout(0.5),
 
-            nn.Conv2d(in_channels=32, out_channels=latent_size, kernel_size=4, stride=2, padding=1)
+            nn.Conv2d(in_channels=32, out_channels=latent_channels, kernel_size=4, stride=2, padding=1)
         )
 
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(in_channels=latent_size, out_channels=32, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(in_channels=latent_channels, out_channels=32, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(num_features=32),
             nn.LeakyReLU(.2),
             nn.Dropout(0.5),
@@ -137,8 +137,11 @@ class AE(nn.Module):
             nn.init.kaiming_uniform_(m.weight)
 
     def forward(self, x):
+        print(x.size())
         latent = self.encoder(x)
+        print(latent.size())
         reconstruction = self.decoder(latent)
+        print(reconstruction.size())
         return reconstruction
 
     class Loss():
@@ -255,6 +258,7 @@ class AE(nn.Module):
 
             self.epoch_end(epoch, result)
             history.append(result)
+            print("###################################")
         return history
 
     def evaluation_routine(self, val_loader, epoch):
