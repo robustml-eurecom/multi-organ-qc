@@ -25,8 +25,8 @@ List of args to be implemented:
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    #_,_,_ = train_val_test(data_path=DATA_PATH)
+    print(f"Device selected: {device}.")
+    _,_,_ = train_val_test(data_path=DATA_PATH) if not os.path.exists(os.path.join(DATA_PATH, "saved_ids.npy")) else (None, None, None)
 
     prepro_path = os.path.join(DATA_PATH, "preprocessed")
     
@@ -40,11 +40,11 @@ def main():
             "BATCH_SIZE": 8,
             "DA": False,
             "in_channels": 4,
-            "channel_config": [32, 32, 64, 64, 64, 128],
-            "latent_channels": 1028,
-            "activation": "leaky_relu",
+            "channel_config": [256, 128, 128, 64, 64, 32, 32],
+            "latent_channels": 100,
+            "activation": "relu",
             "optimizer": torch.optim.Adam,
-            "lr": 2e-4,
+            "lr": 5e-4,
             "weight_decay": 1e-5,
             "functions": {
                 "BKGDLoss": BKGDLoss(), 
@@ -78,7 +78,7 @@ def main():
     
     plot_history(   
         ae.training_routine(
-            range(start,500),
+            range(start,50),
             DataLoader(data_path=DATA_PATH, mode='train', batch_size=BATCH_SIZE, transform=transform_augmentation if DA else transform),
             DataLoader(data_path=DATA_PATH, mode='test', batch_size=BATCH_SIZE, transform=transform),
             os.path.join(DATA_PATH, "checkpoints/")

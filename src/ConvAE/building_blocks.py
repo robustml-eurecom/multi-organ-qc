@@ -44,6 +44,7 @@ class ConvolutionalBlock(nn.Module):
             self.dropout = nn.Dropout(.5)
 
     def forward(self, x):
+        #print(x.size())
         x = self.conv(x)
         x = self.norm(x)
         x = self.activation(x)
@@ -51,4 +52,5 @@ class ConvolutionalBlock(nn.Module):
             x = self.maxpool(x)
         if self.is_dropout:
             x = self.dropout(x)
+        #print(x.size())
         return x

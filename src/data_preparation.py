@@ -9,8 +9,8 @@ from utils.preprocess import (
     find_pairs
     )
 
-DATA_PATH = 'data/brain/'
-SEG_AREA = 'brain_tumor_segmentations'
+DATA_PATH = 'data/liver/'
+SEG_AREA = 'segmentations'
 PAIR_FOLDER = True
 IMAGE_PATHS = None
 
@@ -42,11 +42,11 @@ def main():
 
     # The following folders will be deleted after structured_dataset is completed
     delete = [
-        os.path.join(main_path,"volume_pt1/"),
-        os.path.join(main_path,"volume_pt2/"),
-        os.path.join(main_path,"volume_pt3/"),
-        os.path.join(main_path,"volume_pt4/"),
-        os.path.join(main_path,"volume_pt5/"),
+        os.path.join(DATA_PATH,"volume_pt1/"),
+        os.path.join(DATA_PATH,"volume_pt2/"),
+        os.path.join(DATA_PATH,"volume_pt3/"),
+        os.path.join(DATA_PATH,"volume_pt4/"),
+        os.path.join(DATA_PATH,"volume_pt5/"),
         main_path
         ] if not PAIR_FOLDER else main_path
 

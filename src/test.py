@@ -3,6 +3,7 @@ import numpy as np
 import torch
 
 from ConvAE.model import AE
+from ConvAE.model_v2 import ConvAutoencoder
 from ConvAE.config import KEYS
 from ConvAE.utils import load_opt_params
 
@@ -19,7 +20,8 @@ def main():
 
     optimal_parameters = load_opt_params(prepro_path)
 
-    ae = AE(keys=KEYS, **optimal_parameters).to(device)
+    #ae = AE(keys=KEYS, **optimal_parameters).to(device)
+    ae = ConvAutoencoder(keys=KEYS, **optimal_parameters).to(device)
     ae.load_checkpoint(data_path=DATA_PATH, eval=True)
 
     BATCH_SIZE = optimal_parameters['BATCH_SIZE']

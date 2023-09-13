@@ -148,7 +148,7 @@ def testing(ae, data_path:os.PathLike,
             prediction, reconstruction = [], []
             for batch in patient: 
                 batch = {"prediction": batch.to(device)}
-                batch["reconstruction"] = ae.forward(batch["prediction"])
+                batch["reconstruction"], _ = ae.forward(batch["prediction"])
                 prediction = torch.cat([prediction, batch["prediction"]], dim=0) if len(prediction)>0 else batch["prediction"]
                 reconstruction = torch.cat([reconstruction, batch["reconstruction"]], dim=0) if len(reconstruction)>0 else batch["reconstruction"]
             prediction = prediction.cpu().numpy(),

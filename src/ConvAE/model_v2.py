@@ -82,7 +82,7 @@ class ConvAutoencoder(nn.Module):
 
         # Create shared convolutional layers for the latent space. We are preserving the spatial dimensions of the input.
         self.latent_conv = nn.Sequential(
-            ConvolutionalBlock(kwargs["channel_config"][-1], kwargs["latent_channels"], activation=kwargs['activation'], stride=2, pooling=False),
+            ConvolutionalBlock(kwargs["channel_config"][-1], kwargs["latent_channels"], activation=kwargs['activation']),
             ConvolutionalBlock(kwargs["latent_channels"], kwargs["channel_config"][-1], 
                                kernel_size=4, transpose=True, activation=kwargs['activation'], stride=2, pooling=False)
         )
