@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 import warnings
 
 from medpy.metric import binary
-
+from .loss import Loss
+from .metrics import Metrics
 #use gpu if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -23,8 +24,8 @@ class AE(nn.Module):
         self.init_layers(kwargs["latent_channels"])
         self.apply(self.weight_init)
         self.keys = keys
-        self.loss_function = self.Loss(kwargs["functions"], kwargs["settling_epochs_BKGDLoss"], kwargs["settling_epochs_BKMSELoss"])
-        self.metrics = self.Metrics(self.keys)
+        self.loss_function = Loss(kwargs["functions"], kwargs["settling_epochs_BKGDLoss"], kwargs["settling_epochs_BKMSELoss"])
+        self.metrics = Metrics(self.keys)
         self.optimizer = kwargs["optimizer"](
             self.parameters(),
             lr=kwargs["lr"],
@@ -137,11 +138,8 @@ class AE(nn.Module):
             nn.init.kaiming_uniform_(m.weight)
 
     def forward(self, x):
-        print(x.size())
         latent = self.encoder(x)
-        print(latent.size())
         reconstruction = self.decoder(latent)
-        print(reconstruction.size())
         return reconstruction
 
     class Loss():

@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torchmetrics.image import StructuralSimilarityIndexMeasure as SSIM
 
 class Loss():
     def __init__(self, loss_functions, settling_epochs_BKGDLoss, settling_epochs_BKMSELoss):
@@ -79,3 +80,10 @@ class GDLoss(nn.Module):
         dice_score = 2. * intersection / (cardinality + 1e-6)
         return torch.mean(1 - dice_score)
 
+class SSIMLoss(nn.Module):
+    def __init__(self):
+        super(SSIMLoss, self).__init__()
+        self.ssim_loss = 1 - SSIM().to("cuda" if torch.cuda.is_available() else "cpu")
+
+    def forward(self, prediction, target):
+        return self.ssim_loss(prediction, target)

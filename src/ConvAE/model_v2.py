@@ -45,7 +45,6 @@ class ConvAutoencoder(nn.Module):
             >>> input_tensor = torch.randn(1, 3, 128, 128)
             >>> output, enc_outputs = autoencoder(input_tensor)
         """
-        super(ConvAutoencoder, self).__init__()
 
         assert all([type(cls) == str for cls in keys]), 'keys parameter must be an array of Strings'
         assert len(keys) >= 2, 'At least two keys are necessary.'
@@ -70,33 +69,52 @@ class ConvAutoencoder(nn.Module):
             )
 
     def init_model(self, kwargs):
+        channel_config = [32, 32, 32, 32, 64, 64, 128, 64, 32]
+        pool_config = [True, True, True, False, True, False, True, False, False]
+        kernel_config = [4 if el else 3 for el in pool_config]
+        stride_config = [2 if el else 1 for el in pool_config]
+        
         # Create first conv encoder layers using in_channels
-        self.first_conv = ConvolutionalBlock(kwargs["in_channels"], kwargs["channel_config"][0], activation=kwargs['activation'])
+        self.first_conv = ConvolutionalBlock(kwargs["in_channels"], channel_config[0], 
+                                             activation=kwargs['activation'], pooling=False,
+                                             kernel_size=kernel_config[0], stride=stride_config[0])
         
         # Create encoder layers using channel_config
         self.encoders = nn.ModuleList()
         self.encoders.append(self.first_conv)
-        for i in range(len(kwargs["channel_config"]) - 1):
-            encoder_block = ConvolutionalBlock(kwargs["channel_config"][i], kwargs["channel_config"][i + 1], activation=kwargs['activation'])
+        for i in range(0, len(channel_config) - 1):
+            encoder_block = ConvolutionalBlock(channel_config[i], channel_config[i + 1], pooling=False,
+                                                activation=kwargs['activation'], kernel_size=kernel_config[i + 1],
+                                                stride=stride_config[i + 1])
             self.encoders.append(encoder_block)
 
-        # Create shared convolutional layers for the latent space. We are preserving the spatial dimensions of the input.
+        # Create shared convolutional layers for the latent space. 
+        # We are preserving the spatial dimensions of the input.
         self.latent_conv = nn.Sequential(
-            ConvolutionalBlock(kwargs["channel_config"][-1], kwargs["latent_channels"], activation=kwargs['activation']),
-            ConvolutionalBlock(kwargs["latent_channels"], kwargs["channel_config"][-1], 
-                               kernel_size=4, transpose=True, activation=kwargs['activation'], stride=2, pooling=False)
+            ConvolutionalBlock(channel_config[-1], kwargs["latent_channels"], 
+                               activation=kwargs['activation'], kernel_size=4, stride=2,
+                               pooling=False, is_dropout=False),
+            ConvolutionalBlock(kwargs["latent_channels"], channel_config[-1], 
+                               kernel_size=4, transpose=True, activation=kwargs['activation'], 
+                               stride=2, pooling=False)
         )
 
+        channel_config.reverse(), kernel_config.reverse(), stride_config.reverse()
+        
         # Create decoder layers using channel_config in reverse order
         self.decoders = nn.ModuleList()
-        for i in range(len(kwargs["channel_config"]) - 1, 0, -1):
-            decoder_block = ConvolutionalBlock(kwargs["channel_config"][i], kwargs["channel_config"][i - 1], 
-                                               kernel_size=4, transpose=True, activation=kwargs['activation'], stride=2, pooling=False)
+        for i in range(0, len(channel_config) - 1):
+            decoder_block = ConvolutionalBlock(channel_config[i], channel_config[i + 1], 
+                                               kernel_size=kernel_config[i], transpose=True, 
+                                               activation=kwargs['activation'], stride=stride_config[i], 
+                                               pooling=False)
             self.decoders.append(decoder_block)
         
-        # Final convolutional layer to reconstruct the original input and it uses sigmoid as activation function
-        self.final_conv = ConvolutionalBlock(kwargs["channel_config"][0], kwargs["in_channels"], 
-                                             kernel_size=4, transpose=True, activation='sigmoid', stride=2, pooling=False)
+        # Final convolutional layer to reconstruct the original input and it uses softmax as activation function
+        self.final_conv = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=32, out_channels=kwargs["out_channels"], kernel_size=4, stride=2, padding=1),
+            nn.Softmax(dim=1)
+        )
 
     def forward(self, x):
         # Encoder

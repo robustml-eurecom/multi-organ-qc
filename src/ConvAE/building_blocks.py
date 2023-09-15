@@ -25,13 +25,13 @@ class ConvolutionalBlock(nn.Module):
 
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=1) if not transpose else nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride=stride, padding=1)  # Padding=1 for 'same' padding
         self.norm = nn.BatchNorm2d(out_channels)
-        self.dropout = nn.Dropout(.5)
         if activation == 'relu':
             self.activation = nn.ReLU()
         elif activation == 'leaky_relu':
+            alpha = np.random.uniform(.1, 1)
             self.activation = nn.LeakyReLU(.2)
-        elif activation == 'sigmoid':
-            self.activation = nn.Sigmoid()
+        elif activation == 'softmax':
+            self.activation = nn.Softmax(dim=1)
         else:
             raise ValueError("Unsupported activation function")
 
@@ -44,7 +44,6 @@ class ConvolutionalBlock(nn.Module):
             self.dropout = nn.Dropout(.5)
 
     def forward(self, x):
-        #print(x.size())
         x = self.conv(x)
         x = self.norm(x)
         x = self.activation(x)
@@ -52,5 +51,4 @@ class ConvolutionalBlock(nn.Module):
             x = self.maxpool(x)
         if self.is_dropout:
             x = self.dropout(x)
-        #print(x.size())
         return x

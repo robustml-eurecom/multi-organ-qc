@@ -8,7 +8,7 @@ from ConvAE.model import AE
 from ConvAE.model_v2 import ConvAutoencoder
 from ConvAE.config import KEYS
 from ConvAE.utils import plot_history
-from ConvAE.loss import BKGDLoss, BKMSELoss
+from ConvAE.loss import BKGDLoss, BKMSELoss, SSIMLoss
 
 from utils.preprocess import transform_aug
 from utils.dataset import DataLoader, train_val_test
@@ -37,20 +37,20 @@ def main():
             allow_pickle=True).item()
     else:
         optimal_parameters = {
-            "BATCH_SIZE": 8,
+            "BATCH_SIZE": 4,
             "DA": False,
             "in_channels": 4,
-            "channel_config": [256, 128, 128, 64, 64, 32, 32],
+            "out_channels": 4,
             "latent_channels": 100,
-            "activation": "relu",
+            "activation": "leaky_relu",
             "optimizer": torch.optim.Adam,
-            "lr": 5e-4,
+            "lr": 2e-4,
             "weight_decay": 1e-5,
             "functions": {
                 "BKGDLoss": BKGDLoss(), 
                 "BKMSELoss": BKMSELoss(),
+                "SSIM": SSIMLoss()
                 },
-            #"functions": ["BKGDLoss", "BKMSELoss"],
             "settling_epochs_BKGDLoss": 10,
             "settling_epochs_BKMSELoss": 0
         }
@@ -65,7 +65,7 @@ def main():
     ae = ConvAutoencoder(keys=KEYS, **optimal_parameters).to(device)
     print(ae)
     
-    ckpt = None
+    ckpt = 'data/liver/checkpoints/032_best.pth'
     if ckpt is not None:
         ckpt = torch.load(ckpt)
         ae.load_state_dict(ckpt["AE"])

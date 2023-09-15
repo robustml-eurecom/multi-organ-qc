@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.spatial.distance import directed_hausdorff
+from medpy.metric import binary
 
 class Metrics():
     def __init__(self, keys):
@@ -19,13 +19,14 @@ class Metrics():
         self.keys = keys
 
     def dice_coefficient(self, prediction, target):
-        intersection = np.sum(prediction * target)
-        union = np.sum(prediction) + np.sum(target)
-        return (2.0 * intersection) / (union + 1e-6)
+        try:
+            return binary.dc(prediction, target)
+        except Exception:
+            return 0
 
     def hausdorff_distance(self, prediction, target):
         try:
-            return directed_hausdorff(target, prediction)[0]
+            return binary.hd(prediction, target)
         except Exception:
             return np.nan
 
