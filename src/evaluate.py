@@ -11,7 +11,7 @@ Line arguments to implement:
     - patient id
 '''
 
-DATA_PATH = 'data/liver/'
+DATA_PATH = 'data/brain/'
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def main():

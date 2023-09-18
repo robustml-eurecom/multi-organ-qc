@@ -13,7 +13,7 @@ from ConvAE.loss import BKGDLoss, BKMSELoss, SSIMLoss
 from utils.preprocess import transform_aug
 from utils.dataset import DataLoader, train_val_test
 
-DATA_PATH = 'data/liver/'
+DATA_PATH = 'data/brain/'
 CUSTOM_PARAMS = False
 
 '''
@@ -37,7 +37,7 @@ def main():
             allow_pickle=True).item()
     else:
         optimal_parameters = {
-            "BATCH_SIZE": 4,
+            "BATCH_SIZE": 16,
             "DA": False,
             "in_channels": 4,
             "out_channels": 4,
@@ -65,7 +65,7 @@ def main():
     ae = ConvAutoencoder(keys=KEYS, **optimal_parameters).to(device)
     print(ae)
     
-    ckpt = 'data/liver/checkpoints/032_best.pth'
+    ckpt = None
     if ckpt is not None:
         ckpt = torch.load(ckpt)
         ae.load_state_dict(ckpt["AE"])
