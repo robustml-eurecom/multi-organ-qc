@@ -1,4 +1,4 @@
-# _One to rule them all_ : an attempt for a single modular package for multi-disease Quality Control on MRI images
+# _Multi-organ QC_ : an attempt for a single modular package for multi-organ Quality Control on MRI images
 
 ## Steps
 
