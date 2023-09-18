@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import warnings
 
 from medpy.metric import binary
-from ConvAE.model import AE
+from ConvAE.basic_model import AE
 
 #use gpu if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

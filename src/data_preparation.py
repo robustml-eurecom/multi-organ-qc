@@ -13,12 +13,14 @@ DATA_PATH = 'data/liver/'
 SEG_AREA = 'segmentations'
 PAIR_FOLDER = True
 IMAGE_PATHS = None
-
+TO_STRUCTURE = False
 '''
 List of args to be implemented:
     - data path / str
     - seg_area / str
     - pair_folder / bool
+    - image_paths / bool
+    - to_structure / bool
 '''
 
 def main():
@@ -50,11 +52,12 @@ def main():
         main_path
         ] if not PAIR_FOLDER else main_path
 
-    structure_dataset(
-        data_path = DATA_PATH, 
-        mask_paths=segmentations_paths, 
-        maskName="mask.nii.gz", 
-        delete=delete)
+    if TO_STRUCTURE:
+        structure_dataset(
+            data_path = DATA_PATH, 
+            mask_paths=segmentations_paths, 
+            maskName="mask.nii.gz", 
+            delete=delete)
 
     _ = generate_patient_info(data_path=DATA_PATH, dataset_folder="structured/")
     preprocess(data_path=DATA_PATH)

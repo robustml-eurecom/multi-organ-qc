@@ -160,11 +160,11 @@ def generate_patient_info(folder, patient_ids):
         patient_info[id]["ED"] = int(patient_info[id]["ED"])
         patient_info[id]["ES"] = int(patient_info[id]["ES"])
 
-        image = nib.load(os.path.join(patient_folder, "patient{:03d}_frame{:02d}_gt.nii.gz".format(id, patient_info[id]["ED"])))
+        image = nib.load(os.path.join(patient_folder, "patient{:03d}_frame{:02d}.nii.gz".format(id, patient_info[id]["ED"])))
         patient_info[id]["shape_ED"] = image.get_fdata().shape
         patient_info[id]["crop_ED"] = crop_image(image.get_fdata())
         
-        image = nib.load(os.path.join(patient_folder, "patient{:03d}_frame{:02d}_gt.nii.gz".format(id, patient_info[id]["ES"])))
+        image = nib.load(os.path.join(patient_folder, "patient{:03d}_frame{:02d}.nii.gz".format(id, patient_info[id]["ES"])))
         patient_info[id]["shape_ES"] = image.get_fdata().shape   
         patient_info[id]["crop_ES"] = crop_image(image.get_fdata())
 

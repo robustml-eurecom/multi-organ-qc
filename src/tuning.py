@@ -6,7 +6,7 @@ importlib.reload(sys.modules['utils'])
 
 from utils.dataset import train_val_test
 
-from ConvAE.model import hyperparameter_tuning
+from ConvAE.basic_model import hyperparameter_tuning
 from ConvAE.config import parameters, rules
 from utils.preprocess import transform_aug
 from utils.dataset import DataLoader

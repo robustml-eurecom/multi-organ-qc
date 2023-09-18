@@ -4,8 +4,8 @@ import numpy as np
 
 import torch
 
-from ConvAE.model import AE
-from ConvAE.model_v2 import ConvAutoencoder
+from ConvAE.basic_model import AE
+from ConvAE.models import ConvAutoencoder
 from ConvAE.config import KEYS
 from ConvAE.utils import plot_history
 from ConvAE.loss import BKGDLoss, BKMSELoss, SSIMLoss

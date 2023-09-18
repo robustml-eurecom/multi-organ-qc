@@ -16,7 +16,7 @@ from batchgenerators.augmentations.utils import resize_segmentation
 from PIL import Image
 from scipy import stats
 
-from ConvAE.model import AE
+from ConvAE.basic_model import AE
 
 from utils.dataset import AddPadding, CenterCrop, OneHot, DataLoader
 from utils.preprocess import preprocess, median_spacing_target
