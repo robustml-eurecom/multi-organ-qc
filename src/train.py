@@ -4,17 +4,25 @@ import numpy as np
 
 import torch
 
-from ConvAE.basic_model import AE
-from ConvAE.models import ConvAutoencoder
-from ConvAE.config import KEYS
-from ConvAE.utils import plot_history
-from ConvAE.loss import BKGDLoss, BKMSELoss, SSIMLoss
+from pytorch_lightning import Trainer
+from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
+from pytorch_lightning.loggers import TensorBoardLogger
+
+from models.ConvAE.conv_ae import AE
+from models.ConvAE.conv_ae_iter import ConvAutoencoder
+from models.VAE.beta_vae import BetaVAE
+from models.VAE.experiment import VAEXperiment
+from models.config import KEYS, models_setup
+from models.utils import plot_history
+from models.ConvAE.loss import BKGDLoss, BKMSELoss, SSIMLoss
 
 from utils.preprocess import transform_aug
 from utils.dataset import DataLoader, train_val_test
 
-DATA_PATH = 'data/brain/'
+organ = 'liver'
+DATA_PATH = os.path.join("data", organ)
 CUSTOM_PARAMS = False
+LIGHTNING_PIPELINE = True
 
 '''
 List of args to be implemented:
@@ -37,7 +45,7 @@ def main():
             allow_pickle=True).item()
     else:
         optimal_parameters = {
-            "BATCH_SIZE": 16,
+            "BATCH_SIZE": 8,
             "DA": False,
             "in_channels": 4,
             "out_channels": 4,
@@ -62,7 +70,9 @@ def main():
     DA = optimal_parameters["DA"]
 
     #ae = AE(keys=KEYS, **optimal_parameters).to(device)
-    ae = ConvAutoencoder(keys=KEYS, **optimal_parameters).to(device)
+    #ae = ConvAutoencoder(keys=KEYS, **optimal_parameters).to(device)
+    ae = BetaVAE(**models_setup["params"]).to(device)
+    experiment = VAEXperiment(ae, models_setup['exp_params'])
     print(ae)
     
     ckpt = None
@@ -73,17 +83,42 @@ def main():
         start = ckpt["epoch"]+1
     else:
         start = 0
-    
     transform, transform_augmentation = transform_aug()
     
-    plot_history(   
-        ae.training_routine(
-            range(start,50),
-            DataLoader(data_path=DATA_PATH, mode='train', batch_size=BATCH_SIZE, transform=transform_augmentation if DA else transform),
-            DataLoader(data_path=DATA_PATH, mode='test', batch_size=BATCH_SIZE, transform=transform),
-            os.path.join(DATA_PATH, "checkpoints/")
+    if LIGHTNING_PIPELINE:
+        tb_logger =  TensorBoardLogger(
+            save_dir=models_setup['logging_params']['save_dir'],
+            name=models_setup['logging_params']['name']
+            )
+        
+        runner = Trainer(
+                logger=tb_logger,
+                max_epochs=500,
+                callbacks=[
+                     LearningRateMonitor(),
+                     ModelCheckpoint(save_top_k=2, 
+                                     dirpath =os.path.join("checkpoints", "ogran"), 
+                                     monitor= "val_loss",
+                                     save_last= True),
+                ])
+        
+        train_dataloader = DataLoader(data_path=DATA_PATH, mode='train', batch_size=BATCH_SIZE, transform=transform_augmentation if DA else transform)
+        val_dataloader = DataLoader(data_path=DATA_PATH, mode='test', batch_size=BATCH_SIZE, transform=transform)   
+        os.makedirs(f"{tb_logger.log_dir}/Samples", exist_ok=True)
+        os.makedirs(f"{tb_logger.log_dir}/Reconstructions", exist_ok=True)
+
+        print(f"======= Training {models_setup['name']} =======")
+        runner.fit(experiment, train_dataloader, val_dataloader)
+        
+    else:
+        plot_history(   
+            ae.training_routine(
+                range(start,50),
+                DataLoader(data_path=DATA_PATH, mode='train', batch_size=BATCH_SIZE, transform=transform_augmentation if DA else transform),
+                DataLoader(data_path=DATA_PATH, mode='test', batch_size=BATCH_SIZE, transform=transform),
+                os.path.join(DATA_PATH, "checkpoints/")
+            )
         )
-    )
     
 if __name__ == '__main__':
     main()

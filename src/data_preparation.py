@@ -9,9 +9,10 @@ from utils.preprocess import (
     find_pairs
     )
 
-DATA_PATH = 'data/liver/'
+organ = 'liver'
+DATA_PATH = os.path.join("data", organ)
 SEG_AREA = 'segmentations'
-PAIR_FOLDER = True
+PAIR_FOLDER = False
 IMAGE_PATHS = None
 TO_STRUCTURE = False
 '''

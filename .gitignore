@@ -1,5 +1,10 @@
 data/*
 preprocessed/*
-
+logs/*
+*.pyc
+postprocessed/*
+checkpoints/*
+src/notebooks/*
 *.csv
 *.xlsx
+https://github.com/robustml-eurecom/multi-organ-qc

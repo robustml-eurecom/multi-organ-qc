@@ -389,7 +389,8 @@ class ACDCPatient(torch.utils.data.Dataset):
     def __init__(self, root_dir, patient_id, transform=None):
         self.root_dir = root_dir
         self.id = patient_id
-        self.info = np.load("preprocessed/patient_info.npy", allow_pickle=True).item()[patient_id]
+        self.organ = self.root_dir.split("/")[1]
+        self.info = np.load(f"preprocessed/{self.organ}/patient_info.npy", allow_pickle=True).item()[patient_id]
         self.transform = transform
 
     def __len__(self):
