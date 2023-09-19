@@ -1,4 +1,4 @@
-# _Multi-organ QC_ : an attempt for a single modular package for multi-organ Quality Control on MRI images
+# _Multi-organ QC_ : an attempt for a single modular package for multi-organ Quality Control on medical images
 
 ## Steps
 

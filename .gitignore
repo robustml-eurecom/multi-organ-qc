@@ -4,7 +4,7 @@ logs/*
 *.pyc
 postprocessed/*
 checkpoints/*
-src/notebooks/*
+trash/*
 *.csv
 *.xlsx
 https://github.com/robustml-eurecom/multi-organ-qc
