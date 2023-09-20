@@ -30,15 +30,15 @@ models_setup = {
     "name": "BetaVAE",
     "params": {
         "in_channels": 4,
-        "latent_dim": 50,
+        "latent_dim": 1000,
         "beta":  6.,
         "gamma": 1.
     },
     "exp_params":{          
-        "LR": 0.005,
-        "weight_decay": 0.0,
+        "LR": 2e-4,
+        "weight_decay": 0.0005,
         "scheduler_gamma": 0.95,
-        "kld_weight": 0.00025,
+        "kld_weight": 0.0025,
         "manual_seed": 1265
     },
     "logging_params": {

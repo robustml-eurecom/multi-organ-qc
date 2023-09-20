@@ -16,7 +16,7 @@ from batchgenerators.augmentations.utils import resize_segmentation
 from PIL import Image
 from scipy import stats
 
-from ConvAE.basic_model import AE
+from models.ConvAE.conv_ae import AE
 
 from utils.dataset import AddPadding, CenterCrop, OneHot, DataLoader
 from utils.preprocess import preprocess, median_spacing_target
@@ -148,7 +148,7 @@ def testing(ae, data_path:os.PathLike,
             prediction, reconstruction = [], []
             for batch in patient: 
                 batch = {"prediction": batch.to(device)}
-                batch["reconstruction"], _ = ae.forward(batch["prediction"])
+                batch["reconstruction"] = ae.forward(batch["prediction"])
                 prediction = torch.cat([prediction, batch["prediction"]], dim=0) if len(prediction)>0 else batch["prediction"]
                 reconstruction = torch.cat([reconstruction, batch["reconstruction"]], dim=0) if len(reconstruction)>0 else batch["reconstruction"]
             prediction = prediction.cpu().numpy(),
@@ -170,7 +170,7 @@ def testing(ae, data_path:os.PathLike,
             )
     return results
 
-def generate_testing_set(ae:AE , data_path:os.PathLike, transform:torchvision.transforms.Compose, test_ids:list='default' ):
+def generate_testing_set(ae , data_path:os.PathLike, transform:torchvision.transforms.Compose, test_ids:list='default' ):
     """
         Parameters
         ----------

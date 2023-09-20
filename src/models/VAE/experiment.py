@@ -17,7 +17,7 @@ class VAEXperiment(pl.LightningModule):
                  vae_model: BaseVAE,
                  params: dict) -> None:
         super(VAEXperiment, self).__init__()
-
+        #self.save_hyperparameters()
         self.model = vae_model
         self.params = params
         self.curr_device = None
@@ -41,13 +41,11 @@ class VAEXperiment(pl.LightningModule):
                                               batch_idx = batch_idx)
 
         self.log_dict({key: val.item() for key, val in train_loss.items()}, sync_dist=True)
-
         return train_loss['loss']
 
     def validation_step(self, batch, batch_idx, optimizer_idx = 0):
         real_img = batch
         self.curr_device = real_img.device
-
         results = self.forward(real_img)
         val_loss = self.model.loss_function(*results,
                                             M_N = 1.0, #real_img.shape[0]/ self.num_val_imgs,
@@ -55,10 +53,30 @@ class VAEXperiment(pl.LightningModule):
                                             batch_idx = batch_idx)
 
         self.log_dict({f"val_{key}": val.item() for key, val in val_loss.items()}, sync_dist=True)
+        
+    def test_step(self, batch, batch_idx, optimizer_idx = 0):
+        real_img = self.preprocess_batch(batch)
+        self.curr_device = real_img.device
+        results = self.forward(real_img)
+        test_loss = self.model.loss_function(*results,
+                                            M_N = 1.0, #real_img.shape[0]/ self.num_val_imgs,
+                                            optimizer_idx = optimizer_idx,
+                                            batch_idx = batch_idx)
+
+        self.log_dict({f"test_{key}": val.item() for key, val in test_loss.items()}, sync_dist=True)
+        return test_loss['loss']
+    
+    def preprocess_batch(self, patient):
+        processed_images = []
+        for batch in patient:
+            batch = batch.cuda() if torch.cuda.is_available() else batch
+            img_tensor = batch.to(batch.device)  
+            processed_images = torch.cat([processed_images, img_tensor], dim=0) if len(processed_images)>0 else img_tensor
+        return processed_images
 
         
-    #def on_validation_end(self) -> None:
-    #    self.sample_images()
+    def on_validation_end(self) -> None:
+        self.sample_images()
         
     def sample_images(self):
         # Get sample reconstruction image            

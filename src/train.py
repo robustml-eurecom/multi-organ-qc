@@ -72,7 +72,7 @@ def main():
     #ae = AE(keys=KEYS, **optimal_parameters).to(device)
     #ae = ConvAutoencoder(keys=KEYS, **optimal_parameters).to(device)
     ae = BetaVAE(**models_setup["params"]).to(device)
-    experiment = VAEXperiment(ae, models_setup['exp_params'])
+    experiment = VAEXperiment(ae, models_setup['exp_params']).to(device)
     print(ae)
     
     ckpt = None
@@ -97,9 +97,10 @@ def main():
                 callbacks=[
                      LearningRateMonitor(),
                      ModelCheckpoint(save_top_k=2, 
-                                     dirpath =os.path.join("checkpoints", "ogran"), 
-                                     monitor= "val_loss",
-                                     save_last= True),
+                                     dirpath =os.path.join("checkpoints", organ), 
+                                     monitor= "loss",
+                                     save_last= True,
+                                     verbose=True),
                 ])
         
         train_dataloader = DataLoader(data_path=DATA_PATH, mode='train', batch_size=BATCH_SIZE, transform=transform_augmentation if DA else transform)

@@ -138,43 +138,64 @@ class SpatialTransform():
 ##Brain Dataset and Loader##
 ############################
 class DataLoader(torch.utils.data.DataLoader):
-    def __init__(self, data_path, mode, root_dir='default', patient_ids=None, batch_size=None, transform=None):
+    def __init__(self, data_path:str, mode:str, root_dir:str='default', patient_ids=None, batch_size=None, transform=None, num_workers=0):
+
         assert mode in ['train', 'val', 'test', 'custom'], "Make sure mode is either 'train', 'val', 'test' or 'custom"
-        if mode == 'custom':
-            assert patient_ids is not None, 'patient_ids must be specified on custom mode'
-        if patient_ids is not None and mode in ['train', 'val', 'test']:
-            print(f"Specified patient_ids will be ignored since default mode '{mode}' is specified")
+        if mode == 'custom': assert patient_ids is not None, 'patient_ids must be specified on custom mode'
+        if patient_ids is not None and mode in ['train', 'val', 'test'] : print(f"Specified patient_ids will be ignored since default mode '{mode}' is specified")
 
         self.data_path = data_path
         self.root_dir = os.path.join(data_path, 'preprocessed') if root_dir == 'default' else root_dir
         self.batch_size = batch_size
         self.transform = transform
-
+        self.num_workers = num_workers
+        self.patient_loaders = []
         if mode in ['train', 'val', 'test']:
-            self.patient_ids = np.load(os.path.join(data_path, 'saved_ids.npy'), allow_pickle=True).item().get(f'{mode}_ids')
+            self.patient_ids = np.load(os.path.join(data_path,'saved_ids.npy'), allow_pickle=True).item().get(f'{mode}_ids')
         else:
             self.patient_ids = patient_ids
 
         if batch_size is not None:
-            datasets = [Patient(self.root_dir, id, transform=self.transform) for id in self.patient_ids]
-            super().__init__(
-                dataset=torch.utils.data.ConcatDataset(datasets),
-                batch_size=batch_size,
-                shuffle=False,
-                num_workers=8,
-            )
+            for id in self.patient_ids:
+                self.patient_loaders.append(torch.utils.data.DataLoader(
+                    Patient(self.root_dir, id, transform=self.transform),
+                    batch_size=self.batch_size, shuffle=False, num_workers=0
+                ))
+        
+        self.counter_id = 0
 
     def set_batch_size(self, batch_size):
-        self.batch_size = batch_size
-        self.batch_sampler.batch_size = batch_size
-
+        self.patient_loaders = []
+        for id in self.patient_ids:
+            self.patient_loaders.append(torch.utils.data.DataLoader(
+                Patient(self.root_dir, id, transform=self.transform),
+                batch_size=batch_size, shuffle=False, num_workers=0
+            ))
+    
     def set_transform(self, transform):
         self.transform = transform
-        for dataset in self.dataset.datasets:
-            dataset.transform = transform
+        for loader in self.patient_loaders:
+            loader.dataset.transform = transform
+
+    def __iter__(self):
+        self.counter_iter = 0
+        return self
+
+    def __next__(self):
+        if(self.counter_iter == len(self)):
+            raise StopIteration
+        loader = self.patient_loaders[self.counter_id]
+        self.counter_id += 1
+        self.counter_iter += 1
+        if self.counter_id%len(self) == 0:
+            self.counter_id = 0
+        return loader
+
+    def __len__(self):
+        return len(self.patient_ids)
 
     def current_id(self):
-        return self.patient_ids[self.batch_sampler.current_batch_idx]
+        return self.patient_ids[self.counter_id]
 
 class Patient(torch.utils.data.Dataset):
     """
@@ -212,4 +233,5 @@ class Patient(torch.utils.data.Dataset):
         sample = data[slice_id]
         if self.transform:
             sample = self.transform(sample)
-        return sample
+        return sample\
+            

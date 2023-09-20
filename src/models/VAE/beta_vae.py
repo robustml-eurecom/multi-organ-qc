@@ -39,9 +39,9 @@ class BetaVAE(BaseVAE):
             modules.append(
                 nn.Sequential(
                     nn.Conv2d(in_channels, out_channels=h_dim,
-                              kernel_size= 3, stride= 2, padding  = 1),
+                              kernel_size=3, stride= 2, padding  = 1),
                     nn.BatchNorm2d(h_dim),
-                    nn.LeakyReLU())
+                    nn.LeakyReLU(.2))
             )
             in_channels = h_dim
 
@@ -67,7 +67,7 @@ class BetaVAE(BaseVAE):
                                        padding=1,
                                        output_padding=1),
                     nn.BatchNorm2d(hidden_dims[i + 1]),
-                    nn.LeakyReLU())
+                    nn.LeakyReLU(.2))
             )
 
 
@@ -82,10 +82,10 @@ class BetaVAE(BaseVAE):
                                                padding=1,
                                                output_padding=1),
                             nn.BatchNorm2d(hidden_dims[-1]),
-                            nn.LeakyReLU(),
+                            nn.LeakyReLU(.2),
                             nn.Conv2d(hidden_dims[-1], out_channels=self.in_channels,
                                       kernel_size= 3, padding= 1),
-                            nn.Tanh())
+                            nn.Softplus())
 
     def encode(self, input: Tensor) -> List[Tensor]:
         """
