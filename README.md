@@ -3,18 +3,19 @@
 ## Steps
 
 ### 1. Load your data
-Upload medical images in .nii format for your organ study. 
-
-_Suggestion_: skeleton should be the following
+Upload medical images in .nii format for your organ study. By default, it's intended the user 
 
     📦data
     ┣ 📂organ1
     ┃ ┗ 📂segmentations
+    ┃ ┗ 📂measures
     ┗ 📂organ2
     ┃ ┗ 📂segmentations
+    ┃ ┗ 📂measures
     ┗ 📂...
 
-Pay attention in letting each organ folder including a sub-folder named "segmentations": this allows the package to navigate properly between the generated masks, and do not creating misunderstandings.
+
+Pay attention in letting each organ folder including the two folders, as displayed: this allows the package to navigate properly between the generated masks, and do not creating misunderstandings. 
 
 
 _06-09-2023 Update: tested on Liver and Brain segmentations._

@@ -1,12 +1,16 @@
 data/*
 preprocessed/*
 logs/*
-lightinig_logs/*
+lightning_logs/*
+
 *.pyc
+
 postprocessed/*
 checkpoints/*
 trash/*
 temp_QC/*
+evaluations/*
+
 *.csv
 *.xlsx
 https://github.com/robustml-eurecom/multi-organ-qc
