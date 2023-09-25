@@ -3,7 +3,7 @@
 ## Steps
 
 ### 1. Load your data
-Upload medical images in .nii format for your organ study. By default, it's intended the user 
+Upload medical images in .nii format for your organ study. By default, it's intended the user injects the following folder structure:
 
     📦data
     ┣ 📂organ1
@@ -15,18 +15,19 @@ Upload medical images in .nii format for your organ study. By default, it's inte
     ┗ 📂...
 
 
-Pay attention in letting each organ folder including the two folders, as displayed: this allows the package to navigate properly between the generated masks, and do not creating misunderstandings. 
+Pay attention in letting each organ folder including the two folders as displayed: this allows the package to navigate properly between the generated masks, and do not creating misunderstandings. 
 
 
 _06-09-2023 Update: tested on Liver and Brain segmentations._
+_25-09-23 Update: included synthetic model segmention generation for personal evaluation_
 
 
-### 2. Preprocess data
-To start processing and injecting the loaded data, run on your machine the following prompt:
+### 2. (Optional) Preprocess data
+Optional step to let your data accomplish the previous dataset structure in an automatic way. Do not run it if you already have your segmentations as shown before.To start processing and injecting the loaded data, run on your machine the following prompt:
  ```
- python one-to-rule-them-all/src/data_prepration.py
+ python multi_organ_qc/data_prepration.py
  ```
-A series of displayables will notify you about as this step progresses.
+A series of displayables will notify you about the process progress.
 
 At the end, the folder updates with the following structure:
 
@@ -48,33 +49,33 @@ This applies for each preprocessed organ. **NOTE**: during the preprocessing ste
 
 _06-09-2023 Update: arguments must be declared in the aforementioned script before running. TODO: including line arguments._
 
-### Step 3.a Fine tuning (optional)
-Skip this if you already have an optimal parameter list to test, and see Step 3.b (there's a suggested hyperparameter list, but you can pass yours). Otherwise run the prompt:
+### (Optional) Step 3.a Fine tuning
+Skip this if you already have an optimal parameter list to test, and see Step 3.b (there's a suggested hyperparameter list in ```models/config.py```, but you can pass yours). Otherwise run the prompt:
 
 ```
-python one-to-rule-them-all/src/tuning.py
+python multi_organ_qc/tuning.py
 ```
 
 ### Step 3.b Training
 Automatically detects the available gpu or cpu. This trains the AutoEncoder net for mask reconstruction. Checkpoints are saved in the chosen organ data path ``` data/organ/checkpoints ```. Run the prompt:
 
 ```
-python one-to-rule-them-all/src/train.py
+python multi_organ_qc/train.py
 ```
 
 ### Step 4 Testing & Evaluating
 Test the AE performances on a test set. This saves the reconstructions files in a folder ``` data/organ/reconstructions``` to be used for evaluation. Images are in .nii.gz, and they follow the same skeleton provided in Step 2. To test, run:
 ```
-python one-to-rule-them-all/src/test.py
+python multi_organ_qc/test.py
 ```
 
 In order to evaluate, simply run:
 
 ```
-python one-to-rule-them-all/src/evaluate.py
+python multi_organ_qc/evaluate.py
 ```
 
-After selecting a patient ID, the app will save in a dedicated folder (namely ```src/evaluations```) the following png images:
+After selecting a patient ID, the app will save in a dedicated folder (namely ```evaluations/```) the following png images:
 
     📦evaluations
     ┣ 📂patient_ID
