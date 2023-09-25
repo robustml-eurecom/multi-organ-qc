@@ -9,7 +9,7 @@ postprocessed/*
 checkpoints/*
 trash/*
 temp_QC/*
-evaluations/*
+multi_organ_qc/evaluations/*
 
 *.csv
 *.xlsx
