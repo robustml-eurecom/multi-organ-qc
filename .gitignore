@@ -1,15 +1,16 @@
 data/*
+MSD_data/*
 preprocessed/*
-logs/*
 lightning_logs/*
 
 *.pyc
-
+*.vscode
+*__pycache__ 
 postprocessed/*
 checkpoints/*
 trash/*
 temp_QC/*
-multi_organ_qc/evaluations/*
+evaluations/*
 
 *.csv
 *.xlsx

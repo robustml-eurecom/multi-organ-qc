@@ -22,10 +22,10 @@ _06-09-2023 Update: tested on Liver and Brain segmentations._
 _25-09-23 Update: included synthetic model segmention generation for personal evaluation_
 
 
-### 2. (Optional) Preprocess data
-Optional step to let your data accomplish the previous dataset structure in an automatic way. Do not run it if you already have your segmentations as shown before.To start processing and injecting the loaded data, run on your machine the following prompt:
+### 2. Preprocess data
+Important step to let your data accomplish the previous dataset structure in an automatic way. Do not run it if you already have your segmentations as shown before.To start processing and injecting the loaded data, run on your machine the following prompt:
  ```
- python multi_organ_qc/data_prepration.py
+ python moqc/data_prepration.py
  ```
 A series of displayables will notify you about the process progress.
 
@@ -53,26 +53,26 @@ _06-09-2023 Update: arguments must be declared in the aforementioned script befo
 Skip this if you already have an optimal parameter list to test, and see Step 3.b (there's a suggested hyperparameter list in ```models/config.py```, but you can pass yours). Otherwise run the prompt:
 
 ```
-python multi_organ_qc/tuning.py
+python moqc/tuning.py
 ```
 
 ### Step 3.b Training
 Automatically detects the available gpu or cpu. This trains the AutoEncoder net for mask reconstruction. Checkpoints are saved in the chosen organ data path ``` data/organ/checkpoints ```. Run the prompt:
 
 ```
-python multi_organ_qc/train.py
+python moqc/train.py
 ```
 
 ### Step 4 Testing & Evaluating
 Test the AE performances on a test set. This saves the reconstructions files in a folder ``` data/organ/reconstructions``` to be used for evaluation. Images are in .nii.gz, and they follow the same skeleton provided in Step 2. To test, run:
 ```
-python multi_organ_qc/test.py
+python moqc/test.py
 ```
 
 In order to evaluate, simply run:
 
 ```
-python multi_organ_qc/evaluate.py
+python moqc/evaluate.py
 ```
 
 After selecting a patient ID, the app will save in a dedicated folder (namely ```evaluations/```) the following png images:
