@@ -56,7 +56,7 @@ def main():
     display_image(reconstruction, PATIENT_ID, 'reconstruction')
     
     display_image(gt, PATIENT_ID, 'gt', return_path=False)
-    display_difference(img_rec, img_pred, PATIENT_ID, 'aberration_mask')
+    display_difference(prediction, reconstruction, PATIENT_ID, 'aberration_mask')
     
 
 if __name__ == "__main__":
