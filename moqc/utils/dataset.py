@@ -1,5 +1,6 @@
 import os
 import torch
+import torch.nn.functional as F
 import numpy as np
 
 from batchgenerators.augmentations.spatial_transformations import augment_spatial
@@ -101,10 +102,10 @@ class OneHot(object):
     def __init__(self, num_classes):
         self.num_classes = num_classes
     def one_hot(self, seg):
-        return np.eye(self.num_classes)[seg.astype(int)].transpose(2,0,1)
+        return F.one_hot(torch.tensor(seg).long(), num_classes=self.num_classes)
     def __call__(self, sample):
         sample = self.one_hot(sample)
-        return sample
+        return sample.cpu().numpy().transpose(2,0,1)
 
 class ToTensor(object):
     def __call__(self, sample):

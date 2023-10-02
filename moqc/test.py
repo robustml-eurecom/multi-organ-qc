@@ -9,9 +9,9 @@ from utils.testing import testing
 from utils.dataset import DataLoader
 from utils.preprocess import transform_aug
 
-ORGAN = 'prostate'
+ORGAN = 'spleen'
 DATA_PATH = os.path.join("data", ORGAN)
-CONFIG_FILENAME = "multi_organ_qc/models/config.yml"
+CONFIG_FILENAME = "moqc/models/config.yml"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

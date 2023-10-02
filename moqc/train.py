@@ -3,6 +3,7 @@ import numpy as np
 import yaml 
 
 import torch
+import torch.nn as nn
 
 from models.ConvAE.cae import ConvAutoencoder
 from models.utils import plot_history
@@ -11,10 +12,10 @@ from models.ConvAE.loss import BKGDLoss, BKMSELoss, SSIMLoss
 from utils.preprocess import transform_aug
 from utils.dataset import DataLoader, train_val_test
 
-organ = 'prostate'
+organ = 'spleen'
 DATA_PATH = os.path.join("data", organ)
 CUSTOM_PARAMS = False
-CONFIG_FILENAME = "multi_organ_qc/models/config.yml"
+CONFIG_FILENAME = "moqc/models/config.yml"
 '''
 List of args to be implemented:
     - DATA_PATH/ str
@@ -47,8 +48,9 @@ def main():
         optimal_parameters = parameters
         optimal_parameters["functions"] = {
             "BKGDLoss": BKGDLoss(), 
-            "BKMSELoss": BKMSELoss(),
-            "SSIM": SSIMLoss()
+            #"BKMSELoss": BKMSELoss(),
+            "MSELoss": nn.MSELoss(),
+            "BCE": nn.BCELoss(),
             }
         optimal_parameters["optimizer"] = torch.optim.AdamW
         np.save(os.path.join(prepro_path, "optimal_parameters"), optimal_parameters)

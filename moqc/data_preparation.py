@@ -9,7 +9,7 @@ from utils.preprocess import (
     find_pairs
     )
 
-organ = 'prostate'
+organ = 'spleen'
 DATA_PATH = os.path.join("data", organ)
 SEG_AREA = 'segmentations'
 PAIR_FOLDER = False

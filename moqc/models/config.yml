@@ -1,6 +1,6 @@
 run_params : {
     "run" : False,
-    "keys" : ['BK', 'K1', 'K2']
+    "keys" : ['BK', 'K1']
 }
 
 
@@ -18,13 +18,13 @@ tuning_parameters : {
 }
 
 parameters : {
-    "BATCH_SIZE": 8,
-    "epochs": 30,
+    "BATCH_SIZE": 4,
+    "epochs": 10,
     "DA": False,
-    "in_channels": 3, #corresponding to the number of classes, too
-    "out_channels": 3,
+    "in_channels": 2, #corresponding to the number of classes, too
+    "out_channels": 2,
     "latent_channels": 200,
-    "activation": "leaky_relu",
+    "activation": "relu",
     "lr": .0002,
     "weight_decay": .00005,
     "settling_epochs_BKGDLoss": 10,

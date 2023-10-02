@@ -174,7 +174,6 @@ class ConvAutoencoder(nn.Module):
             for batch in patient:
                 batch = {"gt": batch.to(device)}
                 batch["reconstruction"], _ = self.forward(batch["gt"])
-                
                 gt = torch.cat([gt, batch["gt"]], dim=0) if len(gt) > 0 else batch["gt"]
                 reconstruction = torch.cat([reconstruction, batch["reconstruction"]], dim=0) if len(reconstruction) > 0 else batch["reconstruction"]
                 
@@ -186,6 +185,7 @@ class ConvAutoencoder(nn.Module):
             gt = np.argmax(gt.cpu().numpy(), axis=1)
             gt = {"ED": gt[:len(gt)//2], "ES":gt[len(gt)//2:]}
             reconstruction = np.argmax(reconstruction.cpu().numpy(), axis=1)
+            print(np.unique(reconstruction), reconstruction.shape) if len(np.unique(reconstruction)) > 1 else None
             reconstruction = {"ED": reconstruction[:len(reconstruction)//2], "ES": reconstruction[len(reconstruction)//2:]}
             
             for phase in ["ED", "ES"]:

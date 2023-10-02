@@ -408,7 +408,7 @@ def preprocess(data_path:str,
 def transform_aug(num_classes):
     transform = torchvision.transforms.Compose([
         AddPadding((256,256)),
-        CenterCrop((256,256)),
+        #CenterCrop((256,256)),
         OneHot(num_classes=num_classes),
         ToTensor()
     ])

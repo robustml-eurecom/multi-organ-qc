@@ -15,10 +15,10 @@ Line arguments to implement:
     - data path, str
     - patient id
 '''
-organ = 'prostate'
+organ = 'spleen'
 DATA_PATH = os.path.join("data", organ)
 PRED_PATH = os.path.join(DATA_PATH, "measures")
-CONFIG_FILENAME = "multi_organ_qc/models/config.yml"
+CONFIG_FILENAME = "moqc/models/config.yml"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -52,11 +52,11 @@ def main():
     gt = nib.load(os.path.join(DATA_PATH, "structured/patient{:03d}/mask.nii.gz".format(PATIENT_ID))).get_fdata().transpose(2, 1, 0)
     mid_frame = np.argmax([np.average(prediction[i]) for i in range (prediction.shape[0] -1 )])
 
-    display_image(prediction, PATIENT_ID, 'prediction')
-    display_image(reconstruction, PATIENT_ID, 'reconstruction')
+    display_image(DATA_PATH, prediction, PATIENT_ID, 'prediction')
+    display_image(DATA_PATH, reconstruction, PATIENT_ID, 'reconstruction')
     
     display_image(gt, PATIENT_ID, 'gt', return_path=False)
-    display_difference(prediction, reconstruction, PATIENT_ID, 'aberration_mask')
+    display_difference(DATA_PATH, prediction, reconstruction, PATIENT_ID, 'aberration_mask')
     
 
 if __name__ == "__main__":

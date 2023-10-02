@@ -409,23 +409,21 @@ def display_plots(plots):
     grid = Image.fromarray(grid.astype(np.uint8))
     display(grid.resize((900,600), resample=Image.LANCZOS))
 
-def display_image(img, patient_id, name):
-    img = np.rint(img)
-    img = np.rint(img / 3 * 255)
-    print(img.shape)
-    display(Image.fromarray((img*255)).astype(np.uint8))
+def display_image(data_path, img, patient_id, name):
+    print(np.unique(img*255))
+    display(Image.fromarray((img*255).astype(np.uint8)))
     assert name is not None, "Choose a valid name for your save."
     
-    folder_out_img = f'evaluations/patient_{patient_id}/'
+    folder_out_img = os.path.join(data_path, f'evaluations/patient_{patient_id}')
     if not os.path.exists(folder_out_img): os.makedirs(folder_out_img)
     Image.fromarray(img.astype(np.uint8)).save(f'{folder_out_img}/{name}')
   
-def display_difference(prediction, reference, patient_id, name):
+def display_difference(data_path, prediction, reference, patient_id, name):
     difference = np.zeros(list(prediction.shape[:2]) + [3])
     difference[prediction != reference] = [240,52,52]
     display(Image.fromarray(difference.astype(np.uint8)))
     
-    folder_out_img = f'evaluations/patient_{patient_id}/'
+    folder_out_img = os.path.join(data_path, f'evaluations/patient_{patient_id}')
     if not os.path.exists(folder_out_img) and name is not None : 
         os.makedirs(folder_out_img)
         Image.fromarray(difference.astype(np.uint8)).save(f'{folder_out_img}/{name}')
