@@ -6,25 +6,27 @@ run_params : {
 
 # This is a list of possible values being tested for each hyperparameter.
 tuning_parameters : {
-    "DA" : [True, False], #data augmentation
-    "latent_size": [100, 500], #size of the latent space of the autoencoder
-    "BATCH_SIZE": [8, 16, 4],
+    "DA" : [False], #data augmentation
+    "latent_size": [100, 200, 500], #size of the latent space of the autoencoder
+    "BATCH_SIZE": [8, 16, 4, 2],
     "lr": [.0002, .0001, .001],
     "weight_decay": [.00005, .00001],
     "tuning_epochs": [5, 10], #number of epochs each configuration is run for
-    "functions": [["GDLoss", "MSELoss"], ["GDLoss"], ["BKGDLoss", "BKMSELoss"]], #list of loss functions to be evaluated. BK stands for "background", which is a predominant and not compulsory class (it can lead to a dumb local minimum retrieving totally black images).
+    "functions": [["GDLoss", "MSELoss"], ["GDLoss"], ["BKGDLoss", "BKMSELoss"]], # list of loss functions to be evaluated. BK stands for "background", 
+                                                                                # which is a predominant and not compulsory class 
+                                                                                # (it can lead to a dumb local minimum retrieving totally black images).
     "settling_epochs_BKGDLoss": [10, 0], #during these epochs BK has half the weight of LV, RV and MYO in the evaluation of BKGDLoss
     "settling_epochs_BKMSELoss": [10, 0], #during these epochs BK has half the weight of LV, RV and MYO in the evaluation of BKMSELoss
 }
 
 parameters : {
-    "BATCH_SIZE": 4,
-    "epochs": 10,
+    "batch_size": 8,
+    "epochs": 500,
     "DA": False,
     "in_channels": 2, #corresponding to the number of classes, too
     "out_channels": 2,
-    "latent_channels": 200,
-    "activation": "relu",
+    "latent_channels": 100,
+    "activation": "leaky_relu",
     "lr": .0002,
     "weight_decay": .00005,
     "settling_epochs_BKGDLoss": 10,

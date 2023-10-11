@@ -11,6 +11,7 @@ checkpoints/*
 trash/*
 temp_QC/*
 evaluations/*
+nnUnet/*
 
 *.csv
 *.xlsx

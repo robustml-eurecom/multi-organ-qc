@@ -20,8 +20,8 @@ def plot_history(history):
     plt.legend()
     plt.title('Losses vs. No. of epochs')
     plt.grid()
-    plt.show()
     plt.savefig('logs/train_loss.png')
+    plt.show()
 
 #######################
 #Hyperparameter Tuning#

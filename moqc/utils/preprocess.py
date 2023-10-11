@@ -5,6 +5,7 @@ import warnings
 import numpy as np
 import nibabel as nib
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from typing import Callable
 from utils.common import ignore_directories
@@ -387,7 +388,7 @@ def preprocess(data_path:str,
                     os.path.join(folder_out_patient,'mask.nii.gz')
                 )
         ### End of Alteration
-
+        
         image, processed_shape = preprocess_image(
             sample,
             patient_info[id]["crop"],
@@ -408,7 +409,7 @@ def preprocess(data_path:str,
 def transform_aug(num_classes):
     transform = torchvision.transforms.Compose([
         AddPadding((256,256)),
-        #CenterCrop((256,256)),
+        CenterCrop((256,256)),
         OneHot(num_classes=num_classes),
         ToTensor()
     ])

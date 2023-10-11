@@ -1,9 +1,11 @@
 import os
 import numpy as np
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from .building_blocks import ConvolutionalBlock
 from .loss import Loss
@@ -75,14 +77,12 @@ class ConvAutoencoder(nn.Module):
         stride_config = [2 if el else 1 for el in pool_config]
         
         self.first_conv = ConvolutionalBlock(kwargs["in_channels"], channel_config[0], 
-                                             activation=kwargs['activation'], pooling=False,
-                                             kernel_size=kernel_config[0], stride=stride_config[0])
+                                             activation=kwargs['activation'],                                              kernel_size=kernel_config[0], stride=stride_config[0])
         
         self.encoders = nn.ModuleList()
         self.encoders.append(self.first_conv)
         for i in range(0, len(channel_config) - 1):
-            encoder_block = ConvolutionalBlock(channel_config[i], channel_config[i + 1], pooling=False,
-                                                activation=kwargs['activation'], kernel_size=kernel_config[i + 1],
+            encoder_block = ConvolutionalBlock(channel_config[i], channel_config[i + 1],                                                 activation=kwargs['activation'], kernel_size=kernel_config[i + 1],
                                                 stride=stride_config[i + 1])
             self.encoders.append(encoder_block)
 
@@ -90,7 +90,7 @@ class ConvAutoencoder(nn.Module):
         self.latent_conv = nn.Sequential(
             ConvolutionalBlock(channel_config[-1], kwargs["latent_channels"], 
                                activation=kwargs['activation'], kernel_size=4, stride=2,
-                               pooling=False, is_dropout=False),
+                               is_dropout=False),
             ConvolutionalBlock(kwargs["latent_channels"], channel_config[-1], 
                                kernel_size=4, transpose=True, activation=kwargs['activation'], 
                                stride=2, pooling=False)
@@ -113,22 +113,14 @@ class ConvAutoencoder(nn.Module):
         )
 
     def forward(self, x):
-        # Encoder
         encoder_outputs = []
         for encoder_block in self.encoders:
             x = encoder_block(x)
             encoder_outputs.append(x)
-            
-        # Latent space
         x = self.latent_conv(x)
-        
-        # Decoder
         for decoder_block in self.decoders:
             x = decoder_block(x)
-        
-        # Final reconstruction
         reconstruction = self.final_conv(x)
-
         return reconstruction, encoder_outputs
 
     def weight_init(self, m):
@@ -162,7 +154,9 @@ class ConvAutoencoder(nn.Module):
                     ckpt = ckpt.split(".pth")[0] + "_best.pth"
                 torch.save({"AE": self.state_dict(), "AE_optim": self.optimizer.state_dict(), "epoch": epoch}, ckpt)
                 clean_old_checkpoints(ckpt_folder)
-
+            
+            ReduceLROnPlateau(self.optimizer, mode="min", factor=0.2, patience=20, min_lr=5e-5)
+            
             self.epoch_end(epoch, result)
             history.append(result)
         return history
@@ -182,10 +176,10 @@ class ConvAutoencoder(nn.Module):
                         epoch_summary[k]=[]
                     epoch_summary[k].append(v)
             
-            gt = np.argmax(gt.cpu().numpy(), axis=1)
+
+            gt = np.argmax(gt.cpu().numpy(), axis=1) if gt.shape[1] > 1 else gt.cpu().numpy()
+            reconstruction = np.argmax(reconstruction.cpu().numpy(), axis=1) if reconstruction.shape[1] > 1 else reconstruction.cpu().numpy()
             gt = {"ED": gt[:len(gt)//2], "ES":gt[len(gt)//2:]}
-            reconstruction = np.argmax(reconstruction.cpu().numpy(), axis=1)
-            print(np.unique(reconstruction), reconstruction.shape) if len(np.unique(reconstruction)) > 1 else None
             reconstruction = {"ED": reconstruction[:len(reconstruction)//2], "ES": reconstruction[len(reconstruction)//2:]}
             
             for phase in ["ED", "ES"]:
@@ -195,6 +189,7 @@ class ConvAutoencoder(nn.Module):
                     epoch_summary[k].append(v)
                     
         epoch_summary = {k: np.mean(v) for k,v in epoch_summary.items()}
+        
         return epoch_summary
 
     def epoch_end(self,epoch,result):

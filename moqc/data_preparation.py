@@ -25,7 +25,7 @@ List of args to be implemented:
 
 def main():
     
-    main_path = os.path.join(DATA_PATH, SEG_AREA)
+    main_path = os.path.join(DATA_PATH, 'measures')
     
     if not PAIR_FOLDER:     
         segmentations_paths = find_segmentations(
@@ -46,14 +46,15 @@ def main():
     # The following folders will be deleted after structured_dataset is completed
     delete = [main_path] 
 
-    structure_dataset(
-        data_path = DATA_PATH, 
-        mask_paths=segmentations_paths, 
-        maskName="mask.nii.gz", 
-        delete=delete)
+    if not os.path.exists(os.path.join(main_path, "structured")):
+        structure_dataset(
+            data_path = DATA_PATH, 
+            mask_paths=segmentations_paths, 
+            maskName="mask.nii.gz", 
+            delete=delete)
 
-    _ = generate_patient_info(data_path=DATA_PATH, dataset_folder="structured/")
-    preprocess(data_path=DATA_PATH)
+    _ = generate_patient_info(data_path=main_path, dataset_folder="structured/")
+    preprocess(data_path=main_path)
     
 if __name__ == '__main__':
     main()

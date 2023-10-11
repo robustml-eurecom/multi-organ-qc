@@ -2,6 +2,7 @@ import os
 import torch
 import torch.nn.functional as F
 import numpy as np
+import matplotlib.pyplot as plt
 
 from batchgenerators.augmentations.spatial_transformations import augment_spatial
 
@@ -57,6 +58,7 @@ class AddPadding(object):
         self.output_size = output_size
 
     def resize_image_by_padding(self, image, new_shape, pad_value=0):
+        if len(image.shape) == 3: image = image.squeeze()
         shape = tuple(list(image.shape))
         new_shape = tuple(np.max(np.concatenate((shape, new_shape)).reshape((2, len(shape))), axis=0))
         if pad_value is None:
@@ -102,10 +104,14 @@ class OneHot(object):
     def __init__(self, num_classes):
         self.num_classes = num_classes
     def one_hot(self, seg):
-        return F.one_hot(torch.tensor(seg).long(), num_classes=self.num_classes)
+        try:
+            return F.one_hot(torch.tensor(seg).long(), num_classes=self.num_classes)
+        except:
+            return F.one_hot(torch.tensor(np.where(seg > .5, 1, 0)).long(), num_classes=self.num_classes)
     def __call__(self, sample):
-        sample = self.one_hot(sample)
-        return sample.cpu().numpy().transpose(2,0,1)
+        if self.num_classes < 3: sample = np.where(sample > 0, 1, 0)
+        sample = self.one_hot(sample).cpu().numpy() 
+        return sample.transpose(2,0,1)
 
 class ToTensor(object):
     def __call__(self, sample):

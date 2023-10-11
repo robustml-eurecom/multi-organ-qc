@@ -20,21 +20,22 @@ class ConvolutionalBlock(nn.Module):
         pooling: Whether to add a MaxPooling2D layer after convolution.
     """
 
-    def __init__(self, in_channels, out_channels, kernel_size=3, transpose=False, activation='relu', stride=1, pooling=True, is_dropout=True):
+    def __init__(self, in_channels, out_channels, kernel_size=3, transpose=False, activation='relu', stride=1, pooling=False, is_dropout=True):
         super(ConvolutionalBlock, self).__init__()
 
+        activation_d ={
+            'relu': nn.ReLU(),
+            'leaky_relu': nn.LeakyReLU(.2),
+            'elu': nn.ELU(),
+            'prelu': nn.PReLU(),
+        }
+        
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=1) if not transpose else nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride=stride, padding=1)  # Padding=1 for 'same' padding
         self.norm = nn.BatchNorm2d(out_channels)
-        if activation == 'relu':
-            self.activation = nn.ReLU()
-        elif activation == 'leaky_relu':
-            alpha = np.random.uniform(.1, 1)
-            self.activation = nn.LeakyReLU(.2)
-        elif activation == 'softmax':
-            self.activation = nn.Softmax(dim=1)
-        else:
-            raise ValueError("Unsupported activation function")
-
+        
+        assert activation in activation_d, ValueError("Unsupported activation function")
+        self.activation = activation_d[activation]
+        
         self.pooling = pooling
         if pooling:
             self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)

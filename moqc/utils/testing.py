@@ -5,6 +5,7 @@ import nibabel as nib
 from typing import Callable
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import cv2
 
 import torch
 import torch.nn as nn
@@ -138,7 +139,7 @@ def testing(ae, data_path:os.PathLike,
     ae.eval()
     with torch.no_grad():
         results = {}
-        for patient in tqdm(test_loader, desc="Loading test for evaluation: "):
+        for patient in tqdm(test_loader, desc="Evaluating testing images: "):
             id = patient.dataset.id
             prediction, reconstruction = [], []
             for batch in patient: 
@@ -409,21 +410,16 @@ def display_plots(plots):
     grid = Image.fromarray(grid.astype(np.uint8))
     display(grid.resize((900,600), resample=Image.LANCZOS))
 
-def display_image(data_path, img, patient_id, name):
-    print(np.unique(img*255))
-    display(Image.fromarray((img*255).astype(np.uint8)))
+def display_image(img, out_folder, name): 
     assert name is not None, "Choose a valid name for your save."
-    
-    folder_out_img = os.path.join(data_path, f'evaluations/patient_{patient_id}')
-    if not os.path.exists(folder_out_img): os.makedirs(folder_out_img)
-    Image.fromarray(img.astype(np.uint8)).save(f'{folder_out_img}/{name}')
+    img_gray = (img * 255).astype(np.uint8)
+    cv2.imwrite(os.path.join(out_folder, name), img_gray)
+    #Image.fromarray(img.astype(np.uint8)).save(f'{folder_out_img}/{name}')
   
-def display_difference(data_path, prediction, reference, patient_id, name):
-    difference = np.zeros(list(prediction.shape[:2]) + [3])
-    difference[prediction != reference] = [240,52,52]
-    display(Image.fromarray(difference.astype(np.uint8)))
-    
-    folder_out_img = os.path.join(data_path, f'evaluations/patient_{patient_id}')
-    if not os.path.exists(folder_out_img) and name is not None : 
-        os.makedirs(folder_out_img)
-        Image.fromarray(difference.astype(np.uint8)).save(f'{folder_out_img}/{name}')
+def display_difference(prediction, reference, out_folder, name):
+    pred_gray = (prediction * 255).astype(np.uint8)
+    ref_gray = (reference * 255).astype(np.uint8)
+    diff = cv2.absdiff(pred_gray, ref_gray)
+    # Create an all-zero image with the same shape
+    red_diff_image = cv2.merge([np.zeros_like(diff), np.zeros_like(diff), diff])
+    cv2.imwrite(os.path.join(out_folder, name), red_diff_image)

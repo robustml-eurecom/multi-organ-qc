@@ -1,18 +1,19 @@
 import sys, importlib
 import os
 import numpy as np
-importlib.reload(sys.modules['ConvAE'])
-importlib.reload(sys.modules['utils'])
+import yaml
+import torch
 
 from utils.dataset import train_val_test
 
-from ConvAE.basic_model import hyperparameter_tuning
-from ConvAE.config import parameters, rules
+from models.utils import hyperparameter_tuning
 from utils.preprocess import transform_aug
 from utils.dataset import DataLoader
 
-DATA_PATH = 'data/Kaggle'
-OUTPUT_PATH = "optimal_parameters"
+organ = 'spleen'
+DATA_PATH = os.path.join("data", organ)
+CUSTOM_PARAMS = False
+CONFIG_FILENAME = "moqc/models/config.yml"
 
 '''
 List of args to be implemented:
@@ -22,6 +23,17 @@ List of args to be implemented:
 
 def main():
     #train_ids, val_ids, _ = train_val_test(data_path=DATA_PATH)
+    with open(CONFIG_FILENAME, 'r') as file:
+        try:
+            config = yaml.safe_load(file)
+        except yaml.YAMLError as exc:
+            print(exc)
+    parameters = config["parameters"]
+    rules = config['rules']
+    KEYS = config["run_params"]["keys"]
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Device selected: {device}.")
 
     transform, transform_augmentation = transform_aug()
     
@@ -50,7 +62,7 @@ def main():
         fast=True)  #very important parameter. 
                     #When False, all combinations are tested to return the one retrieving the maximum DSC. 
                     #When True, the first combination avoiding dumb local minima is returned.
-    np.save(os.path.join(os.path.join(DATA_PATH, "preprocessed/"), OUTPUT_PATH), optimal_parameters)
+    np.save(os.path.join(DATA_PATH, "preprocessed/"), optimal_parameters)
         
 
 if __name__ == '__main__':
