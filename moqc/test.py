@@ -35,9 +35,8 @@ def main():
             config = yaml.safe_load(file)
         except yaml.YAMLError as exc:
             print(exc)
-                
-    prepro_path = os.path.join(DATA_PATH, "preprocessed")
-    optimal_parameters = load_opt_params(prepro_path)
+
+    optimal_parameters = load_opt_params(os.path.join(DATA_PATH, "preprocessed"))
     transform, _ = transform_aug(num_classes=optimal_parameters['in_channels'])
     
     #ae = AE(keys=KEYS, **optimal_parameters).to(device)

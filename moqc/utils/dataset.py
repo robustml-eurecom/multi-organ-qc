@@ -3,10 +3,51 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
+import nibabel as nib
 
 from batchgenerators.augmentations.spatial_transformations import augment_spatial
 
 
+def select_valid_imgs(data_path:str, save_path:str, inter_slice_range:list=[4, 14], non_zero_thres:float=0.1):
+    """
+    Select and save valid slices from 3D MRI label and segmentation images as 2D NIfTI images.
+
+    This function processes 3D MRI label and segmentation images, selecting valid slices based on a non-zero threshold
+    and a specified range of slices. It then saves the selected slices as 2D NIfTI images.
+
+    Args:
+    data_path (str): Path to the directory containing NIfTI files.
+    save_path (str): Path to the directory where the selected slices will be saved.
+    inter_slice_range (list): A list specifying the range of slices to consider (inclusive). Default is [5, 14].
+    non_zero_thres (float): The threshold for considering a slice as valid based on the sum of non-zero values.
+                           Default is 0.1.
+
+    Raises:
+    AssertionError: If any of the provided paths do not exist, or the images are 2D-based (not 3D).
+
+    Note:
+    - Images should be 3D. Images with only 2D slices are not processed.
+    - Valid slices are determined based on the non-zero threshold.
+
+    """  
+    assert os.path.exists(data_path), f"{data_path} doesn't exist"
+    to_save = os.path.join(save_path) 
+    if not os.path.exists(to_save): os.makedirs(to_save)
+    
+    for label_f in os.listdir(data_path):
+        if (".nii" in label_f):
+            max_slice = inter_slice_range[1]
+            img = nib.load(os.path.join(data_path, label_f))
+            new_img = img.get_fdata().transpose(2, 1, 0)
+            assert img.shape[0] > 1, f"Label and segmentation shapes are 2D-based. Please select a folder containing 3D images."
+            
+            if new_img.shape[0] < inter_slice_range[1]: max_slice = new_img.shape[0]
+            for slice in range(inter_slice_range[0], max_slice):
+                #print(np.sum(new_img[slice])/np.prod(new_img[slice].shape))
+                if non_zero_thres is None or np.sum(new_img[slice]) > non_zero_thres:
+                    nib.save(nib.Nifti1Image(np.expand_dims(new_img[slice], -1), img.affine), os.path.join(to_save, label_f.replace('.nii', f'_slice_{slice}.nii')))
+    
+    
 def train_val_test(data_path:str, ids_range:range='default', split=[0.70, 0.15, 0.15], shuffle = True, Force=False):
     """
     Given the specified range, returns three shuffled (by default) arrays given the specified split.

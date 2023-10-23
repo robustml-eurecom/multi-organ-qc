@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import argparse
 
 from utils.preprocess import (
     generate_patient_info,
@@ -9,52 +10,55 @@ from utils.preprocess import (
     find_pairs
     )
 
-organ = 'spleen'
-DATA_PATH = os.path.join("data", organ)
-SEG_AREA = 'segmentations'
-PAIR_FOLDER = False
-IMAGE_PATHS = None
-
-'''
-List of args to be implemented:
-    - data path / str
-    - seg_area / str
-    - pair_folder / bool
-    - image_paths / bool
-'''
+parser = argparse.ArgumentParser(description='Testing script for MOQC.')
 
 def main():
-    
-    main_path = os.path.join(DATA_PATH, 'measures')
-    
-    if not PAIR_FOLDER:     
-        segmentations_paths = find_segmentations(
-            root_dir=main_path, 
-            keywords=["segmentation"]
-            )
-    else: 
-        segmentations_paths, IMAGE_PATHS= find_pairs(
-            root_dir=main_path, 
-            mask_keywords=['mask'], 
-            image_keywords=['image']
-            )
-    
-    assert len(segmentations_paths) > 0, "No segmentations were found."
-    
-    print(f"{len(segmentations_paths)} segmentations were successfully retrieved.")
+    # Add command-line arguments
+    parser.add_argument('-d', '--data', type=str, 
+                        default='data', help='Data folder.')
+    parser.add_argument('-mf', '--mask_folder', type=str, 
+                        default='labels', help='Masks folder.')
+    parser.add_argument('-o', '--output', type=str,
+                        default='structured/', help='Output folder of the structured dataset.')
+    parser.add_argument('-pf', '--pair_folder', type=bool,
+                        default=False, help='Enable pair folder.')
+    parser.add_argument('-og', '--organ', type=str, help='Selected organ.')
+    parser.add_argument('-k', '--keyword', type=list, help='Keyword to identify your segmentations.')
+    parser.add_argument('--verbose', action='store_false', help='Enable verbose mode.')
 
-    # The following folders will be deleted after structured_dataset is completed
-    delete = [main_path] 
+    args = parser.parse_args()
+    
+    DATA_PATH = os.path.join(args.data, args.organ) if args.organ else args.data
+    main_path = os.path.join(args.data, args.organ, args.mask_folder)
+    
+    if not os.path.exists(os.path.join(DATA_PATH, args.output)):
+        if not args.pair_folder:     
+            segmentations_paths = find_segmentations(
+                root_dir=main_path, 
+                keywords=args.keyword
+                )
+        else: 
+            segmentations_paths, IMAGE_PATHS= find_pairs(
+                root_dir=main_path, 
+                mask_keywords=['mask'], 
+                image_keywords=['image']
+                )
+        
+        assert len(segmentations_paths) > 0, "No segmentations were found."
+        
+        print(f"{len(segmentations_paths)} segmentations were successfully retrieved.")
 
-    if not os.path.exists(os.path.join(main_path, "structured")):
+        # The following folders will be deleted after structured_dataset is completed
+        delete = [main_path] 
         structure_dataset(
-            data_path = DATA_PATH, 
+            data_path =DATA_PATH, 
             mask_paths=segmentations_paths, 
+            destination_folder=args.output,
             maskName="mask.nii.gz", 
             delete=delete)
 
-    _ = generate_patient_info(data_path=main_path, dataset_folder="structured/")
-    preprocess(data_path=main_path)
+    _ = generate_patient_info(data_path=DATA_PATH, dataset_folder=args.output)
+    preprocess(data_path=DATA_PATH)
     
 if __name__ == '__main__':
     main()

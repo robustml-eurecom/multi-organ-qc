@@ -64,9 +64,10 @@ class ConvAutoencoder(nn.Module):
             kwargs["settling_epochs_BKMSELoss"]
             )
         self.metrics = Metrics(self.keys)
+        self.lr = kwargs["lr"]
         self.optimizer = kwargs["optimizer"](
             self.parameters(),
-            lr=kwargs["lr"],
+            lr=self.lr,
             **{k:v for k,v in kwargs.items() if k in ["weight_decay", "momentum"]}
             )
 
@@ -132,14 +133,16 @@ class ConvAutoencoder(nn.Module):
             os.mkdir(ckpt_folder)
         history = []
         best_acc = None
+        lr_warmup = 1e-5
         for epoch in tqdm(epochs, desc= 'Epochs progress: '):
             self.train()
             for patient in train_loader:
                 for batch in patient:
                     batch = batch.to(device)
+                    #self.optimizer.param_groups[0]['lr'] = lr_warmup*epoch*0.1 if epoch < 50 else self.lr
                     self.optimizer.zero_grad()
                     reconstruction, _ = self.forward(batch)
-                    loss = self.loss_function(reconstruction, batch, epoch)
+                    loss = self.loss_function(reconstruction.to(device), batch, epoch)
                     loss.backward()
                     self.optimizer.step()
                     
@@ -155,7 +158,6 @@ class ConvAutoencoder(nn.Module):
                 torch.save({"AE": self.state_dict(), "AE_optim": self.optimizer.state_dict(), "epoch": epoch}, ckpt)
                 clean_old_checkpoints(ckpt_folder)
             
-            ReduceLROnPlateau(self.optimizer, mode="min", factor=0.2, patience=20, min_lr=5e-5)
             
             self.epoch_end(epoch, result)
             history.append(result)
@@ -179,14 +181,11 @@ class ConvAutoencoder(nn.Module):
 
             gt = np.argmax(gt.cpu().numpy(), axis=1) if gt.shape[1] > 1 else gt.cpu().numpy()
             reconstruction = np.argmax(reconstruction.cpu().numpy(), axis=1) if reconstruction.shape[1] > 1 else reconstruction.cpu().numpy()
-            gt = {"ED": gt[:len(gt)//2], "ES":gt[len(gt)//2:]}
-            reconstruction = {"ED": reconstruction[:len(reconstruction)//2], "ES": reconstruction[len(reconstruction)//2:]}
             
-            for phase in ["ED", "ES"]:
-                for k,v in self.metrics(reconstruction[phase], gt[phase]).items():
-                    if k not in epoch_summary.keys():
-                        epoch_summary[k] = []
-                    epoch_summary[k].append(v)
+            for k,v in self.metrics(reconstruction, gt).items():
+                if k not in epoch_summary.keys():
+                    epoch_summary[k] = []
+                epoch_summary[k].append(v)
                     
         epoch_summary = {k: np.mean(v) for k,v in epoch_summary.items()}
         
@@ -231,9 +230,6 @@ class ConvAutoencoder(nn.Module):
         if eval: self.eval()
         
 
-
-
-        
 ###############
 #Checkpointing#
 ###############

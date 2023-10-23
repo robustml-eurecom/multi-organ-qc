@@ -56,36 +56,6 @@ def evaluate_metrics(prediction, reference, keys: list = None):
                 results["hd" + key] = np.nan
     return results
 
-def postprocess_image(image: np.array, info: dict, phase:str, current_spacing:list):
-    """
-    Takes the input image along with some information, and applies reverse transformation from the preprocessing step.
-
-    Parameters
-    ----------
-        image: np.array
-            The generated output from the auto encoder
-        info: dict
-            The corresponding patient_info to that image
-        phase: str
-            The image phase ("ED" or "ES")
-        current_spacing: list
-            The current image spacing, which corresponds to the median_spacing_target() of the training.
-    """
-
-    postprocessed = np.zeros(info["shape_{}".format(phase)])
-    crop = info["crop_{}".format(phase)]
-    original_shape = postprocessed[crop].shape
-    original_spacing = info["spacing"]
-    tmp_shape = tuple(np.round(original_spacing[1:] / current_spacing[1:] * original_shape[:2]).astype(int)[::-1])
-    image = np.argmax(image, axis=1)
-    image = np.array([torchvision.transforms.Compose([
-            AddPadding(tmp_shape), CenterCrop(tmp_shape), OneHot()
-        ])(slice) for slice in image]
-    )
-    image = resize_segmentation(image.transpose(1,3,2,0), image.shape[1:2]+original_shape,order=1)
-    image = np.argmax(image, axis=0)
-    postprocessed[crop] = image
-    return postprocessed
 
 #TODO : Generalise postprocessing
 def postprocess_image(image, info, current_spacing):

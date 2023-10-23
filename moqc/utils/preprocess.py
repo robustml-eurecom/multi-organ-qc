@@ -43,7 +43,7 @@ def find_segmentations(root_dir:os.PathLike, keywords: list, absolute: bool = Fa
             segmentations.append(find_segmentations(subPath, keywords, absolute))
         else :
             for keyword in keywords:
-                if keyword in dirElement:
+                if keyword in dirElement and (dirElement.endswith(".nii.gz") or dirElement.endswith(".nii")):
                     path = os.path.join(cwd,root_dir, dirElement)
                     segmentations.append(path)
         
@@ -139,7 +139,7 @@ def structure_dataset(data_path:str,
 
     assert maskName.endswith(".nii.gz"), "`maskName` must end with .nii.gz"
     assert imageName.endswith(".nii.gz"), "`fileName` must end with .nii.gz"
-    assert(len(mask_paths) <=1000 ), "Dataset is too large. Make sure N <= 1000"
+    #assert(len(mask_paths) <=1000 ), "Dataset is too large. Make sure N <= 1000"
 
     destination_folder = os.path.join(data_path, destination_folder)
 
@@ -351,9 +351,9 @@ def preprocess(data_path:str,
     get_fname = lambda : "mask.nii.gz"
 
     # Getting patient_info
-    if patient_info=='default' and os.path.isfile(os.path.join(data_path, 'processed/patient_info.npy')):
+    if patient_info=='default' and os.path.isfile(os.path.join(data_path, 'preprocessed/patient_info.npy')):
         patient_info = np.load(os.path.join(data_path, 'preprocessed/patient_info.npy'), allow_pickle=True).item()
-    if patient_info=='default' and not os.path.isfile(os.path.join(data_path, 'processed/patient_info.npy')):
+    elif patient_info=='default' and not os.path.isfile(os.path.join(data_path, 'preprocessed/patient_info.npy')):
         message="patient_info doesn't exist, generating new patient_info from data in {data_path}/structured"
         warnings.warn(message, UserWarning)
         patient_info = generate_patient_info(data_path)
@@ -410,7 +410,7 @@ def transform_aug(num_classes):
     transform = torchvision.transforms.Compose([
         AddPadding((256,256)),
         CenterCrop((256,256)),
-        OneHot(num_classes=num_classes),
+        #OneHot(num_classes=num_classes),
         ToTensor()
     ])
     transform_augmentation = torchvision.transforms.Compose([

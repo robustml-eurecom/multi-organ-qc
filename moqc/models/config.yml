@@ -1,6 +1,6 @@
 run_params : {
     "run" : False,
-    "keys" : ['BK', 'K1']
+    "keys" : ['BK', 'K1', 'K2']
 }
 
 
@@ -20,11 +20,10 @@ tuning_parameters : {
 }
 
 parameters : {
-    "batch_size": 8,
+    "batch_size": 16,
     "epochs": 500,
     "DA": False,
-    "in_channels": 2, #corresponding to the number of classes, too
-    "out_channels": 2,
+    "classes": {'heart': 3, 'lung': 2, 'prostate': 3, 'spleen': 2, 'brain': 4, 'hippocampus': 2}, 
     "latent_channels": 100,
     "activation": "leaky_relu",
     "lr": .0002,

@@ -11,8 +11,9 @@ checkpoints/*
 trash/*
 temp_QC/*
 evaluations/*
-nnUnet/*
+nnUnet_seg/*
 
 *.csv
 *.xlsx
+*.zip
 https://github.com/robustml-eurecom/multi-organ-qc

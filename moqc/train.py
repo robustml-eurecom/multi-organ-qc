@@ -5,6 +5,7 @@ import argparse
 
 import torch
 import torch.nn as nn
+import lpips
 
 from models.ConvAE.cae import ConvAutoencoder
 from models.utils import plot_history
@@ -52,10 +53,14 @@ def main():
             allow_pickle=True).item()
     else:
         optimal_parameters = parameters
+        optimal_parameters["in_channels"] = optimal_parameters["out_channels"] = optimal_parameters["classes"][args.organ]
         optimal_parameters["functions"] = {
-            "BKGDLoss": BKGDLoss(), 
+            "BKGDLoss": BKGDLoss(),
             "MSELoss": nn.MSELoss(),
             "GDLoss": GDLoss(),
+            #"BKMSELoss": BKMSELoss(),
+            #"CELoss": nn.CrossEntropyLoss(),
+            #"LPIPS": lpips.LPIPS().cuda()
             }
         optimal_parameters["optimizer"] = torch.optim.Adam
         np.save(os.path.join(prepro_path, "optimal_parameters"), optimal_parameters)
