@@ -185,8 +185,38 @@ class SpatialTransform():
         return sample[0,0]
     
 ############################
-##Brain Dataset and Loader##
+#### Dataset and Loader ####
 ############################
+
+class NiftiDataset(torch.utils.data.Dataset):
+    def __init__(self, root_dir, transform=None):
+        self.root_dir = root_dir
+        self.transform = transform
+        self.image_paths = self.get_image_paths()
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        image_path = self.image_paths[idx]
+        image = nib.load(image_path).get_fdata()
+        # Convert the NIfTI array to a PIL image
+        pil_image = (image * 255).astype(np.uint8)
+        if self.transform:
+            image = self.transform(pil_image)
+        
+        return image
+
+    def get_image_paths(self):
+        image_paths = []
+        for patient_folder in os.listdir(self.root_dir):
+            patient_folder_path = os.path.join(self.root_dir, patient_folder)
+            if os.path.isdir(patient_folder_path):
+                nifti_file = os.path.join(patient_folder_path, "mask.nii.gz")
+                if os.path.exists(nifti_file):
+                    image_paths.append(nifti_file)
+        return image_paths
+
 class DataLoader(torch.utils.data.DataLoader):
     def __init__(self, data_path:str, mode:str, root_dir:str='default', patient_ids=None, batch_size=None, transform=None, num_workers=0):
 

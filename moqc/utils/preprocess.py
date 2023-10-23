@@ -406,13 +406,22 @@ def preprocess(data_path:str,
     np.save(os.path.join(folder_out, "patient_info"), patient_info)
 
 
-def transform_aug(num_classes):
+def transform_aug(num_classes, is_gan):
     transform = torchvision.transforms.Compose([
         AddPadding((256,256)),
         CenterCrop((256,256)),
         #OneHot(num_classes=num_classes),
         ToTensor()
-    ])
+    ]) if not(is_gan) else torchvision.transforms.Compose([
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize((0.5),(0.5)),
+        torchvision.transforms.ToPILImage(),
+        torchvision.transforms.Resize(256),
+        torchvision.transforms.CenterCrop(256),
+        torchvision.transforms.ToTensor(), # [0, 1]
+        torchvision.transforms.Normalize((0.5),(0.5)), # 3 channels -> [-1, 1]
+        ])
+    
     transform_augmentation = torchvision.transforms.Compose([
         MirrorTransform(),
         SpatialTransform(patch_size=(256,256), angle_x=(-np.pi/6,np.pi/6), scale=(0.7,1.4), random_crop=True),

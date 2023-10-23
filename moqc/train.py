@@ -9,7 +9,7 @@ import lpips
 
 from models.ConvAE.cae import ConvAutoencoder
 from models.utils import plot_history
-from models.ConvAE.loss import BKGDLoss, BKMSELoss, SSIMLoss, GDLoss
+from models.loss import BKGDLoss, BKMSELoss, SSIMLoss, GDLoss
 
 from utils.preprocess import transform_aug
 from utils.dataset import DataLoader, train_val_test

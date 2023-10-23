@@ -8,8 +8,8 @@ import torch.nn as nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from .building_blocks import ConvolutionalBlock
-from .loss import Loss
-from .metrics import Metrics
+from models.loss import Loss
+from models.metrics import Metrics
 
 import warnings
 
