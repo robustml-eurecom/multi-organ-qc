@@ -406,21 +406,34 @@ def preprocess(data_path:str,
     np.save(os.path.join(folder_out, "patient_info"), patient_info)
 
 
-def transform_aug(num_classes, is_gan):
-    transform = torchvision.transforms.Compose([
-        AddPadding((256,256)),
-        CenterCrop((256,256)),
-        #OneHot(num_classes=num_classes),
-        ToTensor()
-    ]) if not(is_gan) else torchvision.transforms.Compose([
-        torchvision.transforms.ToTensor(),
-        torchvision.transforms.Normalize((0.5),(0.5)),
-        torchvision.transforms.ToPILImage(),
-        torchvision.transforms.Resize(256),
-        torchvision.transforms.CenterCrop(256),
-        torchvision.transforms.ToTensor(), # [0, 1]
-        torchvision.transforms.Normalize((0.5),(0.5)), # 3 channels -> [-1, 1]
-        ])
+def transform_aug(num_classes, model):
+    transforms_available = {
+        "cae": torchvision.transforms.Compose([
+            AddPadding((256,256)),
+            CenterCrop((256,256)),
+            OneHot(num_classes=num_classes),
+            ToTensor()
+            #torchvision.transforms.ToTensor(),
+            #torchvision.transforms.Normalize((0.5),(0.5)),
+            #torchvision.transforms.Grayscale(num_output_channels=1),
+            #torchvision.transforms.Resize(256),
+            #torchvision.transforms.CenterCrop(256),
+            #torchvision.transforms.ToTensor(), # [0, 1]
+            #OneHot(num_classes=num_classes),
+            #torchvision.transforms.ToTensor(),
+            #torchvision.transforms.ToTensor()
+        ]), 
+        "dcgan": torchvision.transforms.Compose([
+            torchvision.transforms.ToTensor(),
+            #torchvision.transforms.Normalize((0.5),(0.5)),
+            torchvision.transforms.ToPILImage(),
+            torchvision.transforms.Resize(256),
+            torchvision.transforms.CenterCrop(256),
+            torchvision.transforms.ToTensor(), # [0, 1]
+            #OneHot(num_classes=num_classes),
+            #torchvision.transforms.Normalize((0.5),(0.5)), # 1 channels -> [-1, 1]
+            ])
+        }
     
     transform_augmentation = torchvision.transforms.Compose([
         MirrorTransform(),
@@ -429,4 +442,4 @@ def transform_aug(num_classes, is_gan):
         ToTensor()
     ])
     
-    return transform, transform_augmentation
+    return transforms_available[model], transform_augmentation

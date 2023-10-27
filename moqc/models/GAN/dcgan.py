@@ -3,24 +3,23 @@ import argparse
 import os
 import random
 import yaml
+import time
 import nibabel as nib
+import numpy as np
 
 import torch
 import torch.nn as nn
 import torch.nn.parallel
-import torch.optim as optim
 import torch.utils.data
-import torchvision.transforms as transforms
+from torch.autograd import Variable
+from torch import autograd
 import torchvision.utils as vutils
-import numpy as np
+
+import lpips
 
 from models.loss import Loss
 from models.metrics import Metrics
 from models.ConvAE.cae import clean_old_checkpoints
-
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from IPython.display import HTML
 
 # Set random seed for reproducibility
 manualSeed = 999
@@ -32,12 +31,14 @@ torch.use_deterministic_algorithms(True) # Needed for reproducible results
 
 # Generator Code
 class Generator(nn.Module):
-    def __init__(self, ngpu, ngf, c):
+    def __init__(self, nz, ngpu, ngf, c):
         super(Generator, self).__init__()
         self.ngpu = ngpu
         self.main = nn.Sequential(
             # input is Z, going into a convolution
-            nn.ConvTranspose2d(self.latent_space, ngf * 8, 4, 1, 0, bias=False),
+            #TODO: try with a 2d latent input space with ConvTranspose2d(..., 3, 1, 0)
+            nn.ConvTranspose2d(nz, ngf * 4, 3, 1, 1, bias=False),
+            nn.ConvTranspose2d(ngf* 4, ngf * 8, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 8),
             nn.LeakyReLU(.2, True),
             # state size. ``(ngf*8) x 4 x 4``
@@ -56,7 +57,7 @@ class Generator(nn.Module):
             nn.ConvTranspose2d( ngf, ngf, 4, 2, 1, bias=False),
             nn.ConvTranspose2d( ngf, ngf, 4, 2, 1, bias=False),
             nn.ConvTranspose2d( ngf, c, 4, 2, 1, bias=False),
-            nn.Tanh()
+            nn.Sigmoid()
             # state size. ``(nc) x 64 x 64``
         )
 
@@ -64,18 +65,16 @@ class Generator(nn.Module):
         return self.main(input)
     
 class Discriminator(nn.Module):
-    def __init__(self, ngpu, ndf, c):
+    def __init__(self, ngpu, nz, ndf, c):
         super(Discriminator, self).__init__()
         self.ngpu = ngpu
         self.main = nn.Sequential(
             # input is ``(nc) x 256 x 256``
             nn.Conv2d(c, ndf, 4, 2, 1, bias=False),
-            # state size. ``(ndf=64) x 128 x 128``
             nn.Conv2d(ndf, ndf, 4, 2, 1, bias=False),
-            # state size. ``(ndf=64) x 64 x 64``
             nn.Conv2d(ndf, ndf, 4, 2, 1, bias=False),
-            # state size. ``(ndf=64) x 32 x 32``
             nn.LeakyReLU(0.2, inplace=True),
+            # state size. ``(ndf=64) x 32 x 32``
             
             nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 2),
@@ -87,14 +86,26 @@ class Discriminator(nn.Module):
             # state size. ``(ndf*4) x 8 x 8``
             nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 8),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.2, inplace=True)
             # state size. ``(ndf*8=512) x 4 x 4``
+        )
+        self.encoder = nn.Sequential(
+            nn.Conv2d(ndf * 8, ndf * 8, 3, 1, 1, bias=False),
+            nn.Conv2d(ndf * 8, nz, 3, 1, 0, bias=False),
+            # state size. ``(ndf*8=512) x 2 x 2``
+            #TODO: try outputting a (N, 512, 2, 2) with Conv2d(..., 3, 1, 0)
+        )
+        self.discriminator = nn.Sequential(
             nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
             nn.Sigmoid()
         )
 
+    def embed(self, input):
+        return self.encoder(self.main(input))
+    
     def forward(self, input):
-        return self.main(input)
+        return self.discriminator(self.main(input))
+    
 
 class DCGAN(nn.Module):
     """
@@ -120,26 +131,30 @@ class DCGAN(nn.Module):
     
     def __init__(self, **kwargs):
         super().__init__()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.ngpu = 1 if self.device.type == 'cuda' else 0
 
         self.netG, self.netD = nn.ModuleDict(), nn.ModuleDict()
-        self.models = [self.netG, self.netD]
         self.ngf, self.ndf = kwargs["generator_feat"], kwargs["discriminator_feat"]
-        self.ngpu += 1 if self.device.type == 'cuda' else 0
         self.in_channels = kwargs["in_channels"]
-        self.init_model()
         
-        self.loss_function = Loss(kwargs["functions"])
-        self.metrics = Metrics(self.keys)
+        self.lpips_fn = lpips.LPIPS(net='vgg').to(self.device)
+        self.loss_function = Loss(kwargs["functions"], 0, 0)
         self.lr = kwargs["lr"]
         self.latent_space = kwargs["latent_channels"]
-        self.optimizer = [optimizer(
-            model.parameters(),
-            lr=self.lr,
-            **{k:v for k,v in kwargs.items() if k in ["weight_decay", "momentum"]}
-            ) for optimizer, model in zip(kwargs["optimizer"], self.models)]
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
-    def setup_learning(self, **kwargs):   
+        self.init_model()
+        self.models = [self.netG, self.netD]
+        #print(self.models)
+        self.optimizer = [
+            torch.optim.Adam(
+                model.parameters(),
+                lr=self.lr,
+                betas=(kwargs["beta1"], 0.999)
+            ) for model in self.models]
+        self.setup_learning()
+        
+    def setup_learning(self):   
         # Create batch of latent vectors that we will use to visualize
         #  the progression of the generator
         self.fixed_noise = torch.randn(256, self.latent_space, 1, 1, device=self.device)
@@ -147,15 +162,11 @@ class DCGAN(nn.Module):
         # Establish convention for real and fake labels during training
         self.real_label = 1.
         self.fake_label = 0.
-
-        # Setup Adam optimizers for both G and D
-        #optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(beta1, 0.999))
-        #optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(beta1, 0.999)) 
         return self
        
     def init_model(self): 
-        self.netG = Generator(self.ngpu, self.ngf, self.in_channels).to(self.device)
-        self.netD = Discriminator(self.ngpu, self.ngf, self.in_channels).to(self.device)
+        self.netG = Generator(self.latent_space, self.ngpu, self.ngf, self.in_channels).to(self.device)
+        self.netD = Discriminator(self.ngpu, self.latent_space, self.ndf, self.in_channels).to(self.device)
         
         # Handle multi-GPU if desired
         if (self.device.type == 'cuda') and (self.ngpu > 1):
@@ -169,48 +180,84 @@ class DCGAN(nn.Module):
         print("-"*80)
         print("Discriminator network: ")
         print(self.netD)
-        print("-"*80)        
+        print("-"*80)    
+        return self    
         
         
     # custom weights initialization called on ``netG`` and ``netD``
-    def weights_init(m):
+    def weights_init(self, m):
         classname = m.__class__.__name__
         if classname.find('Conv') != -1:
             nn.init.normal_(m.weight.data, 0.0, 0.02)
         elif classname.find('BatchNorm') != -1:
             nn.init.normal_(m.weight.data, 1.0, 0.02)
             nn.init.constant_(m.bias.data, 0)
-            
+
+    
+    def calculate_gradient_penalty(self, real_images, fake_images):
+        eta = torch.FloatTensor(self.batch_size,1,1,1).uniform_(0,1)
+        eta = eta.expand(self.batch_size, real_images.size(1), real_images.size(2), real_images.size(3))
+        if self.cuda:
+            eta = eta.cuda(self.cuda_index)
+        else:
+            eta = eta
+
+        interpolated = eta * real_images + ((1 - eta) * fake_images)
+
+        if self.cuda:
+            interpolated = interpolated.cuda(self.cuda_index)
+        else:
+            interpolated = interpolated
+
+        # define it to calculate gradient
+        interpolated = Variable(interpolated, requires_grad=True)
+
+        # calculate probability of interpolated examples
+        prob_interpolated = self.D(interpolated)
+
+        # calculate gradients of probabilities with respect to examples
+        gradients = autograd.grad(outputs=prob_interpolated, inputs=interpolated,
+                               grad_outputs=torch.ones(
+                                   prob_interpolated.size()).cuda(self.cuda_index) if self.cuda else torch.ones(
+                                   prob_interpolated.size()),
+                               create_graph=True, retain_graph=True)[0]
+
+        grad_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * self.lambda_term
+        return grad_penalty
+        
             
     def training_routine(self, epochs, train_loader, val_loader, ckpt_folder=None):
         img_list = []
-        G_losses = []
-        D_losses = []
+        G_losses, D_losses= [], []
+        recent_losses, ema_loss = [], []
         iters = 0
-        prev_errG = 1e10
+        prev_errG = float('inf')
+        
         print("Starting Training Loop...")
         # For each epoch
+        start_time = time.time()
         for epoch in epochs:
             # For each batch in the dataloader
             for i, data in enumerate(train_loader, 0):
-                
                 ############################
                 # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
                 ###########################
                 self.netD.zero_grad()
-                real_cpu = data[0].to(self.device).unsqueeze(1)
+                real_cpu = data[0].unsqueeze(0).float().to(self.device)
                 b_size = real_cpu.size(0)
                 label = torch.full((b_size,), self.real_label, dtype=torch.float, device=self.device)
                 output = self.netD(real_cpu).view(-1)
-                errD_real = self.loss_function(output, label)
+                errD_real = self.loss_function(output, label, epoch)
                 errD_real.backward()
                 D_x = output.mean().item()
 
-                noise = torch.randn(b_size, self.latent_space, 1, 1, device=self.device)
+                #noise = torch.randn(b_size, self.latent_space, 1, 1, device=self.device)
+                noise = self.netD.embed(real_cpu) # (N, 100, 1, 1)
                 fake = self.netG(noise)
+                #print(noise.shape, fake.shape)
                 label.fill_(self.fake_label)
                 output = self.netD(fake.detach()).view(-1)
-                errD_fake = self.loss_function(output, label)
+                errD_fake = self.loss_function(output, label, epoch)
                 errD_fake.backward()
                 D_G_z1 = output.mean().item()
                 errD = errD_real + errD_fake
@@ -222,43 +269,54 @@ class DCGAN(nn.Module):
                 self.netG.zero_grad()
                 label.fill_(self.real_label)  
                 output = self.netD(fake).view(-1)
-                errG = self.loss_function(output, label)
+                errG = .1 * self.loss_function(output, label, epoch) + .9 * (.5 * nn.MSELoss()(fake, real_cpu) + .5 * self.lpips_fn(fake, real_cpu))
                 errG.backward()
                 D_G_z2 = output.mean().item()
                 self.optimizer[0].step()
 
                 if i % 100 == 0:
-                    print('[%d/%d][%03d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
-                        % (epoch, len(epochs), i, len(train_loader),
+                    print('[%03d/%03d][%03d/%03d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
+                        % (epoch + 1, len(epochs), i, len(train_loader),
                             errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
-
                 # Save Losses for plotting later
                 G_losses.append(errG.item())
                 D_losses.append(errD.item())
+                recent_losses.append(errG.item())
 
+                # Calculate the mean of recent losses
                 # Check how the generator is doing by saving G's output on fixed_noise
-                if (iters % 500 == 0) or ((epoch == len(epochs)-1) and (i == len(train_loader)-1)):
+                if (iters % len(train_loader) == 0) or ((epoch == len(epochs)-1) and (i == len(train_loader)-1)):
                     with torch.no_grad():
-                        fake = self.netG(self.fixed_noise).detach().cpu()
-                    img_list.append(vutils.make_grid(fake, nrow=20, padding=2, normalize=True))
-                    
-                    if errG.item() < prev_errG:
-                        print("errG has decreased from {:.4f} to {:.4f}. Saving checkpoint...".format(prev_errG, errG))
-                        prev_errG = errG.item()
-                        # Save the current model state and errG value to a checkpoint file
-                        checkpoint = {
-                            "GAN": self.netG.state_dict(),
-                            "GAN_optim": self.optimizer[0].state_dict(),
-                            "epoch": epoch
-                        }
-                        ckpt = os.path.join(ckpt_folder,"{:03d}.pth".format(epoch))
-                        ckpt = ckpt.split(".pth")[0] + "_best.pth"
-                        torch.save(checkpoint, ckpt)
-                    else:
-                        print("errG has not decreased. Skipping checkpoint...")
-                    clean_old_checkpoints(ckpt_folder)
-                
+                        if val_loader is not None: val_data = torch.cat([inputs for inputs in val_loader], dim=0).float().to(self.device)
+                        emb = self.netD.embed(val_data if val_loader is not None else self.fixed_noise)
+                        fake = self.netG(emb if val_loader is not None else self.fixed_noise).detach().cpu()
+                    img_list.append(vutils.make_grid(fake, normalize=True))
                 iters += 1
+ 
+            print("Time elapsed: {:.2f} seconds".format(time.time() - start_time))
+            avg_loss = sum(recent_losses) / len(recent_losses) #if epoch == 0 else .9 * sum(recent_losses) / len(recent_losses) + .1 * avg_loss
+            ema_loss.append(avg_loss)
+            
+            if avg_loss < prev_errG:
+                print("Generator Loss has decreased from {:.4f} to {:.4f}. Saving checkpoint...".format(prev_errG, avg_loss))
+                prev_errG = avg_loss
+                checkpoint = {
+                    "dcgan_g": self.netG.state_dict(),
+                    "dcgan_d": self.netD.state_dict(),
+                    "dcgan_g_optim": self.optimizer[0].state_dict(),
+                    "dcgan_d_optim": self.optimizer[1].state_dict(),
+                    "epoch": epoch
+                }
+                if not os.path.exists(ckpt_folder): os.makedirs(ckpt_folder)
+                ckpt = os.path.join(ckpt_folder, "{:03d}.pth".format(epoch))
+                ckpt = ckpt.split(".pth")[0] + "_best.pth"
+                torch.save(checkpoint, ckpt)
+            else:
+                print("Generator error has not decreased. Skipping checkpoint...")
+            clean_old_checkpoints(ckpt_folder)
+            recent_losses = []
+                
+        return ([G_losses, D_losses, ema_loss], img_list)
     
     def load_checkpoint(self, data_path:os.PathLike='default', checkpoint_path:os.PathLike='default', eval:bool=False ):
         """
@@ -278,13 +336,15 @@ class DCGAN(nn.Module):
         assert data_path != 'default' or checkpoint_path != 'default', "Either data_path or checkpoint_path must be provided"
 
         if checkpoint_path=='default':
-            ckpt = os.path.join(data_path,"checkpoints/", sorted([file for file in os.listdir(os.path.join(data_path,"checkpoints")) if "_best" in file])[-1])
+            ckpt = os.path.join(data_path,"checkpoints/dcgan", sorted([file for file in os.listdir(os.path.join(data_path,"checkpoints/dcgan")) if "_best" in file])[-1])
         else:
             ckpt = checkpoint_path
         print("Chosen checkpoint is {} .".format(os.path.split(ckpt)[1]))
         print("###################################")
         ckpt = torch.load(ckpt)
 
-        self.load_state_dict(ckpt["AE"])
-        self.optimizer.load_state_dict(ckpt["AE_optim"])
-        if eval: self.eval()
+        self.netG.load_state_dict(ckpt["dcgan_g"])
+        self.netD.load_state_dict(ckpt["dcgan_d"])
+        self.optimizer[0].load_state_dict(ckpt["dcgan_g_optim"])
+        self.optimizer[1].load_state_dict(ckpt["dcgan_d_optim"])
+        if eval: self.netG.eval(), self.netD.eval()

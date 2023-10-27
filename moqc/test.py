@@ -7,7 +7,7 @@ from models.ConvAE.cae import ConvAutoencoder
 from models.utils import load_opt_params
 
 from utils.testing import testing
-from utils.dataset import DataLoader
+from utils.dataset import DataLoader, NiftiDataset
 from utils.preprocess import transform_aug
 
 
@@ -22,6 +22,7 @@ def main():
     parser.add_argument('-o', '--output', type=str,
                         default='reconstructions', help='Output folder.')
     parser.add_argument('-og', '--organ', type=str, help='Selected organ.')
+    parser.add_argument('-m', '--model', type=str, help='Model to be used.')
     parser.add_argument('--verbose', action='store_false', help='Enable verbose mode.')
 
     args = parser.parse_args()
@@ -36,19 +37,21 @@ def main():
         except yaml.YAMLError as exc:
             print(exc)
 
-    optimal_parameters = load_opt_params(os.path.join(DATA_PATH, "preprocessed"))
-    transform, _ = transform_aug(num_classes=optimal_parameters['in_channels'])
+    optimal_parameters = load_opt_params(os.path.join(DATA_PATH, "preprocessed"), model=args.model.lower())
     
-    #ae = AE(keys=KEYS, **optimal_parameters).to(device)
-    ae = ConvAutoencoder(keys=config["run_params"]["keys"], 
+    transform, _ = transform_aug(num_classes=optimal_parameters["in_channels"], model=args.model.lower())
+    dataset = NiftiDataset(DATA_PATH+'/structured', transform=transform, mode='test')
+    
+    model = ConvAutoencoder(keys=config["run_params"]["keys"], 
                          **optimal_parameters
                          ).to(device)
-    ae.load_checkpoint(data_path=DATA_PATH, eval=True)
+    model.load_checkpoint(data_path=DATA_PATH, eval=True)
+    dataset = NiftiDataset(DATA_PATH+'/structured', transform=transform)
     
     _ = testing(
-        ae=ae, 
+        ae=model, 
         data_path=DATA_PATH,
-        test_loader=DataLoader(data_path=DATA_PATH, mode='test', batch_size=optimal_parameters['batch_size'], transform=transform),
+        test_loader=torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False, num_workers=8),
         folder_out=os.path.join(DATA_PATH, args.output),
         compute_results=False)
     

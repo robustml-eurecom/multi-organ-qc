@@ -139,20 +139,23 @@ class CenterCrop(object):
 
     def __call__(self, sample):
         sample = self.center_crop_2D_image(sample, crop_size=self.output_size)
-        return sample
+        return sample.reshape(1, sample.shape[0], sample.shape[1])
 
 class OneHot(object):
     def __init__(self, num_classes):
         self.num_classes = num_classes
+        
     def one_hot(self, seg):
-        try:
-            return F.one_hot(torch.tensor(seg).long(), num_classes=self.num_classes)
-        except:
-            return F.one_hot(torch.tensor(np.where(seg > .5, 1, 0)).long(), num_classes=self.num_classes)
+        one_hot_image = np.zeros((self.num_classes, seg.shape[1], seg.shape[2]), dtype=np.uint8)
+        unique_values = np.linspace(0, 255, self.num_classes, dtype=np.uint8)
+        value_to_channel = {k:v for v,k in enumerate(unique_values)}
+        for value, channel in value_to_channel.items():
+            one_hot_image[channel, ...] = (seg == value).astype(np.uint8)
+        return one_hot_image
+    
     def __call__(self, sample):
-        if self.num_classes < 3: sample = np.where(sample > 0, 1, 0)
-        sample = self.one_hot(sample).cpu().numpy() 
-        return sample.transpose(2,0,1)
+        sample = self.one_hot(sample)
+        return sample
 
 class ToTensor(object):
     def __call__(self, sample):
@@ -189,11 +192,13 @@ class SpatialTransform():
 ############################
 
 class NiftiDataset(torch.utils.data.Dataset):
-    def __init__(self, root_dir, transform=None):
+    def __init__(self, root_dir, transform=None, mode=None):
         self.root_dir = root_dir
         self.transform = transform
+        self.mode = mode
+        self.ids = np.load(os.path.join("/".join(root_dir.split('/')[:-1]),'saved_ids.npy'), allow_pickle=True).item().get(f'{mode}_ids') if self.mode is not None else None
         self.image_paths = self.get_image_paths()
-
+        
     def __len__(self):
         return len(self.image_paths)
 
@@ -201,15 +206,17 @@ class NiftiDataset(torch.utils.data.Dataset):
         image_path = self.image_paths[idx]
         image = nib.load(image_path).get_fdata()
         # Convert the NIfTI array to a PIL image
-        pil_image = (image * 255).astype(np.uint8)
+        classes = np.unique(image)[-1]
+        pil_image = (image * 255/classes).astype(np.uint8)
         if self.transform:
             image = self.transform(pil_image)
-        
         return image
 
     def get_image_paths(self):
         image_paths = []
         for patient_folder in os.listdir(self.root_dir):
+            if self.ids is not None:
+                if int(patient_folder.replace("patient", "")) not in self.ids: continue
             patient_folder_path = os.path.join(self.root_dir, patient_folder)
             if os.path.isdir(patient_folder_path):
                 nifti_file = os.path.join(patient_folder_path, "mask.nii.gz")
@@ -234,7 +241,6 @@ class DataLoader(torch.utils.data.DataLoader):
             self.patient_ids = np.load(os.path.join(data_path,'saved_ids.npy'), allow_pickle=True).item().get(f'{mode}_ids')
         else:
             self.patient_ids = patient_ids
-            
 
         if batch_size is not None:
             for id in self.patient_ids:
@@ -311,8 +317,8 @@ class Patient(torch.utils.data.Dataset):
 
     def __getitem__(self, slice_id):
         data = np.load(os.path.join(self.root_dir, "patient{:03d}.npy".format(self.id)))
-        sample = data[slice_id]
+        sample = data#[slice_id]
         if self.transform:
             sample = self.transform(sample)
-        return sample\
+        return sample
             

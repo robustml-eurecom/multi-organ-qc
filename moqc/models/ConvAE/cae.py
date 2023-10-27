@@ -136,11 +136,12 @@ class ConvAutoencoder(nn.Module):
         lr_warmup = 1e-5
         for epoch in tqdm(epochs, desc= 'Epochs progress: '):
             self.train()
-            for patient in train_loader:
-                for batch in patient:
+            for batch in train_loader:
+                #for batch in patient:
                     batch = batch.to(device)
                     #self.optimizer.param_groups[0]['lr'] = lr_warmup*epoch*0.1 if epoch < 50 else self.lr
                     self.optimizer.zero_grad()
+                    #print(batch.argmax(1).unique())
                     reconstruction, _ = self.forward(batch)
                     loss = self.loss_function(reconstruction.to(device), batch, epoch)
                     loss.backward()
@@ -165,9 +166,9 @@ class ConvAutoencoder(nn.Module):
 
     def evaluation_routine(self, val_loader, epoch):
         epoch_summary = {}
-        for patient in val_loader:
-            gt, reconstruction = [], []
-            for batch in patient:
+        for batch in val_loader:
+                gt, reconstruction = [], []
+            #for batch in patient:
                 batch = {"gt": batch.to(device)}
                 batch["reconstruction"], _ = self.forward(batch["gt"])
                 gt = torch.cat([gt, batch["gt"]], dim=0) if len(gt) > 0 else batch["gt"]
@@ -179,13 +180,13 @@ class ConvAutoencoder(nn.Module):
                     epoch_summary[k].append(v)
             
 
-            gt = np.argmax(gt.cpu().numpy(), axis=1) if gt.shape[1] > 1 else gt.cpu().numpy()
-            reconstruction = np.argmax(reconstruction.cpu().numpy(), axis=1) if reconstruction.shape[1] > 1 else reconstruction.cpu().numpy()
-            
-            for k,v in self.metrics(reconstruction, gt).items():
-                if k not in epoch_summary.keys():
-                    epoch_summary[k] = []
-                epoch_summary[k].append(v)
+                gt = np.argmax(gt.cpu().numpy(), axis=1) if gt.shape[1] > 1 else gt.cpu().numpy()
+                reconstruction = np.argmax(reconstruction.cpu().numpy(), axis=1) if reconstruction.shape[1] > 1 else reconstruction.cpu().numpy()
+                
+                for k,v in self.metrics(reconstruction, gt).items():
+                    if k not in epoch_summary.keys():
+                        epoch_summary[k] = []
+                    epoch_summary[k].append(v)
                     
         epoch_summary = {k: np.mean(v) for k,v in epoch_summary.items()}
         
@@ -218,7 +219,7 @@ class ConvAutoencoder(nn.Module):
         assert data_path != 'default' or checkpoint_path != 'default', "Either data_path or checkpoint_path must be provided"
 
         if checkpoint_path=='default':
-            ckpt = os.path.join(data_path,"checkpoints/", sorted([file for file in os.listdir(os.path.join(data_path,"checkpoints")) if "_best" in file])[-1])
+            ckpt = os.path.join(data_path,"checkpoints/cae/", sorted([file for file in os.listdir(os.path.join(data_path,"checkpoints/cae")) if "_best" in file])[-1])
         else:
             ckpt = checkpoint_path
         print("Chosen checkpoint is {} .".format(os.path.split(ckpt)[1]))

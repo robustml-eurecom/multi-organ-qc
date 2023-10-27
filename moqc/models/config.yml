@@ -20,16 +20,30 @@ tuning_parameters : {
 }
 
 parameters : {
-    "batch_size": 16,
-    "epochs": 500,
-    "DA": False,
-    "classes": {'heart': 3, 'lung': 2, 'prostate': 3, 'spleen': 2, 'brain': 4, 'hippocampus': 2}, 
-    "latent_channels": 100,
-    "activation": "leaky_relu",
-    "lr": .0002,
-    "weight_decay": .00005,
-    "settling_epochs_BKGDLoss": 10,
-    "settling_epochs_BKMSELoss": 0
+    "dcgan" : {
+        "epochs": 50,
+        "batch_size": 2,
+        "in_channels": 1,
+        "lr": .0002,
+        "beta1": .5,
+        "latent_channels": 30,
+        "weight_decay": .00005,
+        "generator_feat": 64,
+        "discriminator_feat": 64
+    },
+    "cae": {
+        "batch_size": 2,
+        "epochs": 500,
+        "DA": False,
+        "classes": {'heart': 3, 'lung': 2, 'prostate': 3, 'spleen': 2, 'brain': 4, 'hippocampus': 2}, 
+        "latent_channels": 100,
+        "activation": "leaky_relu",
+        "lr": .0002,
+        "weight_decay": .00005,
+        "settling_epochs_BKGDLoss": 10,
+        "settling_epochs_BKMSELoss": 0
+
+    }
 }
 
 #this is a list of rules cutting out some useless combinations of hyperparameters from the tuning process.

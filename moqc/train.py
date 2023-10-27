@@ -8,11 +8,12 @@ import torch.nn as nn
 import lpips
 
 from models.ConvAE.cae import ConvAutoencoder
-from models.utils import plot_history
+from models.GAN.dcgan import DCGAN
+from models.utils import plot_history, htlm_images
 from models.loss import BKGDLoss, BKMSELoss, SSIMLoss, GDLoss
 
 from utils.preprocess import transform_aug
-from utils.dataset import DataLoader, train_val_test
+from utils.dataset import NiftiDataset, DataLoader, train_val_test
 
 parser = argparse.ArgumentParser(description='Testing script for MOQC.')
 
@@ -24,9 +25,10 @@ def main():
                         default='moqc/models/config.yml', help='Configuration file.')
     parser.add_argument('-o', '--output', type=str,
                         default='reconstructions', help='Output folder.')
+    parser.add_argument('--custom_params', type=bool, default=False, help='Enable custom parameters.')
     parser.add_argument('-og', '--organ', type=str, help='Selected organ.')
+    parser.add_argument('-m', '--model', type=str, help='Model to be used.')
     parser.add_argument('--verbose', action='store_false', help='Enable verbose mode.')
-    parser.add_argument('--custom_params', action='store_true', help='Enable custom parameters.')
 
     args = parser.parse_args()
 
@@ -37,7 +39,7 @@ def main():
             config = yaml.safe_load(file)
         except yaml.YAMLError as exc:
             print(exc)
-    parameters = config["parameters"]
+    parameters = config["parameters"][args.model.lower()]
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device selected: {device}.")
@@ -49,49 +51,51 @@ def main():
     if args.custom_params:
         optimal_parameters = np.load(
             os.path.join(
-                prepro_path, "optimal_parameters.npy"), 
+                prepro_path, f"{args.model.lower()}_optimal_parameters.npy"), 
             allow_pickle=True).item()
     else:
         optimal_parameters = parameters
-        optimal_parameters["in_channels"] = optimal_parameters["out_channels"] = optimal_parameters["classes"][args.organ]
+        if "in_channels" not in optimal_parameters: optimal_parameters["in_channels"] = optimal_parameters["out_channels"] = optimal_parameters["classes"][args.organ]
         optimal_parameters["functions"] = {
             "BKGDLoss": BKGDLoss(),
-            "MSELoss": nn.MSELoss(),
             "GDLoss": GDLoss(),
-            #"BKMSELoss": BKMSELoss(),
-            #"CELoss": nn.CrossEntropyLoss(),
-            #"LPIPS": lpips.LPIPS().cuda()
+            "MSELoss": nn.MSELoss(),
             }
         optimal_parameters["optimizer"] = torch.optim.Adam
-        np.save(os.path.join(prepro_path, "optimal_parameters"), optimal_parameters)
+        np.save(os.path.join(prepro_path, f"{args.model.lower()}_optimal_parameters"), optimal_parameters)
 
     assert optimal_parameters is not None, "Be sure to continue with a working set of hyperparameters"
 
-    DA = optimal_parameters["DA"]
+    transform, transform_augmentation = transform_aug(num_classes=parameters["in_channels"], model=args.model.lower())
 
-    #ae = AE(keys=KEYS, **optimal_parameters).to(device)
-    ae = ConvAutoencoder(keys=config['run_params']['keys'], **optimal_parameters).to(device)
-    print(ae)
+    train_dataset = NiftiDataset(DATA_PATH+'/structured', transform=transform, mode='train')
+    val_dataset = NiftiDataset(DATA_PATH+'/structured', transform=transform, mode='val')
+    
+    if args.model.lower() == "dcgan": 
+        model = DCGAN(**optimal_parameters).to(device)
+    elif args.model.lower() == "cae": 
+        DA = optimal_parameters["DA"]
+        model = ConvAutoencoder(keys=config['run_params']['keys'], **optimal_parameters).to(device)
+    print(model)
     
     ckpt = None
     if ckpt is not None:
         ckpt = torch.load(ckpt)
-        ae.load_state_dict(ckpt["AE"])
-        ae.optimizer.load_state_dict(ckpt["AE_optim"])
+        model.load_state_dict(ckpt[args.model.lower()])
+        model.optimizer.load_state_dict(ckpt[f"{args.model.lower()}_optim"])
         start = ckpt["epoch"]+1
     else:
         start = 0
-        
-    transform, transform_augmentation = transform_aug(num_classes=parameters["in_channels"])
-        
-    plot_history(   
-        ae.training_routine(
-            range(start, parameters["epochs"]),
-            DataLoader(data_path=DATA_PATH, mode='train', batch_size=parameters['batch_size'], num_workers=8, transform=transform_augmentation if DA else transform),
-            DataLoader(data_path=DATA_PATH, mode='test', batch_size=parameters['batch_size'], num_workers=8, transform=transform),
-            os.path.join(DATA_PATH, "checkpoints/")
-        )
-    )
+          
+    history = model.training_routine(
+                range(start, parameters["epochs"]),
+                torch.utils.data.DataLoader(train_dataset, batch_size=parameters['batch_size'], shuffle=True, num_workers=8),
+                torch.utils.data.DataLoader(val_dataset, batch_size=val_dataset.__len__(), shuffle=True, num_workers=8),
+                ckpt_folder=os.path.join(DATA_PATH, "checkpoints/cae")
+            )
+    
+    plot_history(history)
+    #if args.model.lower() == 'dcgan': htlm_images(img_list, "logs/dcgan.html")
     
 if __name__ == '__main__':
     main()

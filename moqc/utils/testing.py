@@ -109,17 +109,17 @@ def testing(ae, data_path:os.PathLike,
     ae.eval()
     with torch.no_grad():
         results = {}
-        for patient in tqdm(test_loader, desc="Evaluating testing images: "):
-            id = patient.dataset.id
+        for i, batch in tqdm(enumerate(test_loader), desc="Evaluating testing images: "):
+            id = i
             prediction, reconstruction = [], []
-            for batch in patient: 
-                batch = {"prediction": batch.to(device)}
-                batch["reconstruction"], _ = ae.forward(batch["prediction"])
-                prediction = torch.cat([prediction, batch["prediction"]], dim=0) if len(prediction)>0 else batch["prediction"]
-                reconstruction = torch.cat([reconstruction, batch["reconstruction"]], dim=0) if len(reconstruction)>0 else batch["reconstruction"]
+            #for batch in patient: 
+            batch = {"prediction": batch.to(device)}
+            batch["reconstruction"], _ = ae.forward(batch["prediction"])
+            prediction = torch.cat([prediction, batch["prediction"]], dim=0) if len(prediction)>0 else batch["prediction"]
+            reconstruction = torch.cat([reconstruction, batch["reconstruction"]], dim=0) if len(reconstruction)>0 else batch["reconstruction"]
             prediction = prediction.cpu().numpy(),
             reconstruction = reconstruction.cpu().numpy()
-            reconstruction = postprocess_image(reconstruction, patient_info[id], current_spacing)
+            #reconstruction = postprocess_image(reconstruction, patient_info[id], current_spacing)
 
             folder_out_patient = os.path.join(folder_out, "patient{:03d}".format(id))
             if compute_results :
@@ -382,13 +382,16 @@ def display_plots(plots):
 
 def display_image(img, out_folder, name): 
     assert name is not None, "Choose a valid name for your save."
-    img_gray = (img * 255).astype(np.uint8)
+    classes = np.unique(img)[-1]
+    img_gray = (img * 255/classes).astype(np.uint8)
     cv2.imwrite(os.path.join(out_folder, name), img_gray)
     #Image.fromarray(img.astype(np.uint8)).save(f'{folder_out_img}/{name}')
   
 def display_difference(prediction, reference, out_folder, name):
-    pred_gray = (prediction * 255).astype(np.uint8)
-    ref_gray = (reference * 255).astype(np.uint8)
+    class_ref, class_pred = np.unique(reference)[-1], np.unique(prediction)[-1]
+    pred_gray = (prediction * 255/class_pred).astype(np.uint8)
+    dim = pred_gray.shape[:2]
+    ref_gray = AddPadding(dim)(reference * 255/class_ref).astype(np.uint8)
     diff = cv2.absdiff(pred_gray, ref_gray)
     # Create an all-zero image with the same shape
     red_diff_image = cv2.merge([np.zeros_like(diff), np.zeros_like(diff), diff])

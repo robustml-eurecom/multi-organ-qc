@@ -3,8 +3,11 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-import matplotlib.pyplot as plt
 import warnings
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from IPython.display import HTML
+from torch.autograd import Variable
 
 from medpy.metric import binary
 from .ConvAE.cae import ConvAutoencoder
@@ -12,16 +15,48 @@ from .ConvAE.cae import ConvAutoencoder
 #use gpu if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
+##################
+# Plot utilities #
+##################
+
 def plot_history(history):
-    losses = [x['Total'] for x in history]
-    plt.plot(losses, '-o', label="loss")
-    plt.xlabel('epoch')
-    plt.ylabel('loss')
-    plt.legend()
-    plt.title('Losses vs. No. of epochs')
-    plt.grid()
+    if not isinstance(history, (dict, list)):
+        raise ValueError("Input history should be a dictionary or a list")
+    
+    if isinstance(history, dict):
+        history = [[x['Total'] for x in history]]
+    
+    num_losses = len(history)
+    # Create subplots
+    fig, axes = plt.subplots(1, num_losses, figsize=(15, 5))
+    
+    if num_losses == 1: axes = [axes]  # Ensure that axes is a list, even for a single subplot
+    
+    for i, loss in enumerate(history):
+        label = f'Loss {i + 1}' if num_losses > 1 else 'Loss'
+        axes[i].plot(loss, label=label)
+        axes[i].set_xlabel('Epoch')
+        axes[i].set_ylabel('Loss')
+        axes[i].legend()
+        axes[i].set_title(f'{label} vs. No. of epochs')
+        axes[i].grid()
+
+    plt.tight_layout()  # To prevent overlapping subplots
     plt.savefig('logs/train_loss.png')
     plt.show()
+
+
+def htlm_images(img_list, output_path):
+    fig = plt.figure(figsize=(8,8))
+    plt.axis("off")
+    ims = [[plt.imshow(np.transpose(i,(1,2,0)), animated=True)] for i in img_list]
+    ani = animation.ArtistAnimation(fig, ims, interval=1000, repeat_delay=1000, blit=True)
+    html_content = HTML(ani.to_jshtml())
+
+    with open(output_path, 'w') as f:
+        f.write(html_content.data)
+
 
 #######################
 #Hyperparameter Tuning#
@@ -94,13 +129,20 @@ def hyperparameter_tuning(parameters, train_loader, val_loader, transform, trans
 
     return optimal_parameters
 
-def load_opt_params(prepro_path: str):
+def load_opt_params(prepro_path: str, model:str):
     optimal_parameters = np.load(
         os.path.join(
             prepro_path, 
-            "optimal_parameters.npy"), 
+            f"{model}_optimal_parameters.npy"), 
         allow_pickle=True).item()
 
     assert optimal_parameters is not None, "Be sure to continue with a working set of hyperparameters"
     
     return optimal_parameters
+
+
+def reparameterization(latent_dim, mu, logvar):
+    std = torch.exp(logvar / 2)
+    sampled_z = Variable(torch.FloatTensor(np.random.normal(0, 1, (mu.size(0), latent_dim))))
+    z = sampled_z * std + mu
+    return z
