@@ -10,7 +10,6 @@ import cv2
 import torch
 import torch.nn as nn
 import torchvision
-
 import seaborn as sns
 from IPython.display import display
 from batchgenerators.augmentations.utils import resize_segmentation
@@ -391,7 +390,7 @@ def display_difference(prediction, reference, out_folder, name):
     class_ref, class_pred = np.unique(reference)[-1], np.unique(prediction)[-1]
     pred_gray = (prediction * 255/class_pred).astype(np.uint8)
     dim = pred_gray.shape[:2]
-    ref_gray = AddPadding(dim)(reference * 255/class_ref).astype(np.uint8)
+    ref_gray = CenterCrop(dim)((AddPadding(dim)(reference * 255/class_ref).astype(np.uint8))).transpose(1,2,0)
     diff = cv2.absdiff(pred_gray, ref_gray)
     # Create an all-zero image with the same shape
     red_diff_image = cv2.merge([np.zeros_like(diff), np.zeros_like(diff), diff])

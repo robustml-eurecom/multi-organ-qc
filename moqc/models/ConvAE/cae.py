@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+import torchvision.utils as vutils
 
 from .building_blocks import ConvolutionalBlock
 from models.loss import Loss
@@ -132,6 +133,7 @@ class ConvAutoencoder(nn.Module):
         if ckpt_folder is not None and not os.path.isdir(ckpt_folder):
             os.mkdir(ckpt_folder)
         history = []
+        img_list = []
         best_acc = None
         lr_warmup = 1e-5
         for epoch in tqdm(epochs, desc= 'Epochs progress: '):
@@ -139,9 +141,7 @@ class ConvAutoencoder(nn.Module):
             for batch in train_loader:
                 #for batch in patient:
                     batch = batch.to(device)
-                    #self.optimizer.param_groups[0]['lr'] = lr_warmup*epoch*0.1 if epoch < 50 else self.lr
                     self.optimizer.zero_grad()
-                    #print(batch.argmax(1).unique())
                     reconstruction, _ = self.forward(batch)
                     loss = self.loss_function(reconstruction.to(device), batch, epoch)
                     loss.backward()
@@ -149,8 +149,8 @@ class ConvAutoencoder(nn.Module):
                     
             self.eval()
             with torch.no_grad():
-                result = self.evaluation_routine(val_loader, epoch)
-            
+                result, pred = self.evaluation_routine(val_loader, epoch)
+                img_list.append(vutils.make_grid(pred.unsqueeze(0)))
             if ckpt_folder is not None and (best_acc is None or result['Total'] < best_acc or epoch%10 == 0):
                 ckpt = os.path.join(ckpt_folder,"{:03d}.pth".format(epoch))
                 if best_acc is None or result['Total'] < best_acc:
@@ -162,7 +162,7 @@ class ConvAutoencoder(nn.Module):
             
             self.epoch_end(epoch, result)
             history.append(result)
-        return history
+        return history, img_list
 
     def evaluation_routine(self, val_loader, epoch):
         epoch_summary = {}
@@ -190,7 +190,7 @@ class ConvAutoencoder(nn.Module):
                     
         epoch_summary = {k: np.mean(v) for k,v in epoch_summary.items()}
         
-        return epoch_summary
+        return epoch_summary, batch["reconstruction"].argmax(1).int()
 
     def epoch_end(self,epoch,result):
         print("\033[1mEpoch [{}]\033[0m".format(epoch))

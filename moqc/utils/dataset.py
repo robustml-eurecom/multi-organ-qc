@@ -101,7 +101,10 @@ class AddPadding(object):
     def resize_image_by_padding(self, image, new_shape, pad_value=0):
         if len(image.shape) == 3: image = image.squeeze()
         shape = tuple(list(image.shape))
-        new_shape = tuple(np.max(np.concatenate((shape, new_shape)).reshape((2, len(shape))), axis=0))
+        new_shape = tuple(np.max(
+            np.concatenate((shape, new_shape)).reshape((2, len(shape))), 
+            axis=0
+            ))
         if pad_value is None:
             if len(shape) == 2:
                 pad_value = image[0, 0]

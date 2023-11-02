@@ -1,6 +1,6 @@
 run_params : {
     "run" : False,
-    "keys" : ['BK', 'K1', 'K2']
+    "keys" : ['BK', 'K1']
 }
 
 
@@ -32,11 +32,11 @@ parameters : {
         "discriminator_feat": 64
     },
     "cae": {
-        "batch_size": 2,
+        "batch_size": {'heart': 2, 'lung': 2, 'prostate': 2, 'spleen': 2, 'brain': 8, 'hippocampus': 4},
         "epochs": 500,
         "DA": False,
-        "classes": {'heart': 3, 'lung': 2, 'prostate': 3, 'spleen': 2, 'brain': 4, 'hippocampus': 2}, 
-        "latent_channels": 100,
+        "classes": {'heart': 2, 'lung': 2, 'prostate': 3, 'spleen': 2, 'brain': 4, 'hippocampus': 3}, 
+        "latent_channels": 20,
         "activation": "leaky_relu",
         "lr": .0002,
         "weight_decay": .00005,

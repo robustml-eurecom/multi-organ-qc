@@ -72,7 +72,7 @@ def main():
         reconstruction = nib.load(os.path.join(DATA_PATH,"{}/reconstructions/patient{:03d}/mask.nii.gz".format(args.segmentations, patient_id))).get_fdata().squeeze(0).argmax(0)
         #gt = nib.load(os.path.join(DATA_PATH, "structured/patient{:03d}/mask.nii.gz".format(patient_id))).get_fdata()
 
-        out_folder = os.path.join(DATA_PATH, f'evaluations/patient_{patient_id:03d}')
+        out_folder = f'evaluations/{args.organ}/patient_{patient_id:03d}'
         if not os.path.exists(out_folder): os.makedirs(out_folder)
         
         display_image(prediction, out_folder, 'prediction.png')

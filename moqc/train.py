@@ -44,7 +44,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device selected: {device}.")
     
-    _,_,_ = train_val_test(data_path=DATA_PATH, split=[.8, .1, .1]) if not os.path.exists(os.path.join(DATA_PATH, "saved_ids.npy")) else (None, None, None)
+    _,_,_ = train_val_test(data_path=DATA_PATH, split=[.9, .05, .05]) if not os.path.exists(os.path.join(DATA_PATH, "saved_ids.npy")) else (None, None, None)
 
     prepro_path = os.path.join(DATA_PATH, "preprocessed")
     
@@ -74,8 +74,10 @@ def main():
     if args.model.lower() == "dcgan": 
         model = DCGAN(**optimal_parameters).to(device)
     elif args.model.lower() == "cae": 
+        keys = config['run_params']['keys'] 
+        if optimal_parameters['classes'][args.organ] > 2: keys += [f'K{i}' for i in range(2, optimal_parameters['classes'][args.organ])]
         DA = optimal_parameters["DA"]
-        model = ConvAutoencoder(keys=config['run_params']['keys'], **optimal_parameters).to(device)
+        model = ConvAutoencoder(keys=keys, **optimal_parameters).to(device)
     print(model)
     
     ckpt = None
@@ -87,15 +89,15 @@ def main():
     else:
         start = 0
           
-    history = model.training_routine(
+    history, img_list = model.training_routine(
                 range(start, parameters["epochs"]),
-                torch.utils.data.DataLoader(train_dataset, batch_size=parameters['batch_size'], shuffle=True, num_workers=8),
-                torch.utils.data.DataLoader(val_dataset, batch_size=val_dataset.__len__(), shuffle=True, num_workers=8),
-                ckpt_folder=os.path.join(DATA_PATH, "checkpoints/cae")
+                torch.utils.data.DataLoader(train_dataset, batch_size=parameters['batch_size'][args.organ], shuffle=True, num_workers=8),
+                torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=8),
+                ckpt_folder=os.path.join(DATA_PATH, f"checkpoints/{args.model.lower()}"),
             )
     
     plot_history(history)
-    #if args.model.lower() == 'dcgan': htlm_images(img_list, "logs/dcgan.html")
+    htlm_images(img_list, "logs/dcgan.html")
     
 if __name__ == '__main__':
     main()
