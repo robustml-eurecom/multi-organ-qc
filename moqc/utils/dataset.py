@@ -47,6 +47,40 @@ def select_valid_imgs(data_path:str, save_path:str, inter_slice_range:list=[4, 1
                 if non_zero_thres is None or np.sum(new_img[slice]) > non_zero_thres:
                     nib.save(nib.Nifti1Image(np.expand_dims(new_img[slice], -1), img.affine), os.path.join(to_save, label_f.replace('.nii', f'_slice_{slice}.nii')))
     
+# Get the list of files in each directory
+def remove_non_common_files(dir1, dir2):
+    """
+    This function removes files that are not common between two directories.
+
+    It first lists all files in each directory, then identifies files that are present in one directory but not the other.
+    These "non-common" files are then removed from their respective directories.
+
+    Parameters:
+    dir1 (str): The path to the first directory.
+    dir2 (str): The path to the second directory.
+
+    Returns:
+    None
+
+    Note:
+    This function performs deletion of files. Use with caution, as this operation is not reversible.
+    """
+    
+    files1 = set(os.listdir(dir1))
+    files2 = set(os.listdir(dir2))
+
+    # Find the differences between the two sets of files
+    diff1 = files1.difference(files2)
+    diff2 = files2.difference(files1)
+    print(len(files1), len(diff1))
+    # Remove the files that are not common between the two directories
+    for file in diff1:
+        os.remove(os.path.join(dir1, file))
+
+    for file in diff2:
+        os.remove(os.path.join(dir2, file))
+    print(len(files1), len(diff1))
+
     
 def train_val_test(data_path:str, ids_range:range='default', split=[0.70, 0.15, 0.15], shuffle = True, Force=False):
     """
@@ -195,11 +229,14 @@ class SpatialTransform():
 ############################
 
 class NiftiDataset(torch.utils.data.Dataset):
-    def __init__(self, root_dir, transform=None, mode=None):
+    def __init__(self, root_dir, transform=None, mode=None, is_segment=False):
         self.root_dir = root_dir
         self.transform = transform
         self.mode = mode
-        self.ids = np.load(os.path.join("/".join(root_dir.split('/')[:-1]),'saved_ids.npy'), allow_pickle=True).item().get(f'{mode}_ids') if self.mode is not None else None
+        self.is_segment = is_segment
+        split_dir = self.root_dir.split('/')[:-2] if is_segment else self.root_dir.split('/')[:-1]
+        print("Getting ids from {}".format(os.path.join("/".join(split_dir),'saved_ids.npy')))
+        self.ids = np.load(os.path.join("/".join(split_dir),'saved_ids.npy'), allow_pickle=True).item().get(f'{mode}_ids') if self.mode is not None else None
         self.image_paths = self.get_image_paths()
         
     def __len__(self):

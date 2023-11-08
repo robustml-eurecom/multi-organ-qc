@@ -10,26 +10,12 @@ from utils.preprocess import (
     find_pairs
     )
 
-parser = argparse.ArgumentParser(description='Testing script for MOQC.')
-
-def main():
-    # Add command-line arguments
-    parser.add_argument('-d', '--data', type=str, 
-                        default='data', help='Data folder.')
-    parser.add_argument('-mf', '--mask_folder', type=str, 
-                        default='labels', help='Masks folder.')
-    parser.add_argument('-o', '--output', type=str,
-                        default='structured/', help='Output folder of the structured dataset.')
-    parser.add_argument('-pf', '--pair_folder', type=bool,
-                        default=False, help='Enable pair folder.')
-    parser.add_argument('-og', '--organ', type=str, help='Selected organ.')
-    parser.add_argument('-k', '--keyword', type=list, help='Keyword to identify your segmentations.')
-    parser.add_argument('--verbose', action='store_false', help='Enable verbose mode.')
-
-    args = parser.parse_args()
-    
+def main(args):
     DATA_PATH = os.path.join(args.data, args.organ) if args.organ else args.data
-    main_path = os.path.join(args.data, args.organ, args.mask_folder)
+    main_path = os.path.join(args.data, args.organ, args.mask_folder) if args.organ else os.path.join(args.data, args.mask_folder)
+    print("+-------------------------------------+")
+    print(f'Running in the following path: {DATA_PATH}. Data will be retrieved from {main_path}.')  
+    print("+-------------------------------------+")
     
     if not os.path.exists(os.path.join(DATA_PATH, args.output)):
         if not args.pair_folder:     
@@ -60,5 +46,22 @@ def main():
     _ = generate_patient_info(data_path=DATA_PATH, dataset_folder=args.output)
     preprocess(data_path=DATA_PATH)
     
+    
 if __name__ == '__main__':
-    main()
+    
+    parser = argparse.ArgumentParser(description='Testing script for MOQC.')    
+    # Add command-line arguments
+    parser.add_argument('-d', '--data', type=str, 
+                        default='data', help='Data folder.')
+    parser.add_argument('-mf', '--mask_folder', type=str, 
+                        default='labels', help='Masks folder.')
+    parser.add_argument('-o', '--output', type=str,
+                        default='structured/', help='Output folder of the structured dataset.')
+    parser.add_argument('-pf', '--pair_folder', type=bool,
+                        default=False, help='Enable pair folder.')
+    parser.add_argument('-og', '--organ', type=str, help='Selected organ.')
+    parser.add_argument('-k', '--keyword', type=list, help='Keyword to identify your segmentations.')
+    parser.add_argument('--verbose', action='store_false', help='Enable verbose mode.')
+    
+    args = parser.parse_args()
+    main(args)

@@ -6,6 +6,7 @@ from typing import Callable
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import cv2
+import pandas as pd
 
 import torch
 import torch.nn as nn
@@ -82,8 +83,7 @@ def postprocess_image(image, info, current_spacing):
     image = np.argmax(image, axis=1)
     image = np.array([torchvision.transforms.Compose([
             AddPadding(tmp_shape), CenterCrop(tmp_shape), OneHot(num_classes=num_classes)
-        ])(slice) for slice in image]
-    )
+        ])(image)])
     image = resize_segmentation(image.transpose(1,3,2,0), image.shape[1:2]+original_shape,order=1)
     image = np.argmax(image, axis=0)
     postprocessed[crop] = image
@@ -116,7 +116,7 @@ def testing(ae, data_path:os.PathLike,
             batch["reconstruction"], _ = ae.forward(batch["prediction"])
             prediction = torch.cat([prediction, batch["prediction"]], dim=0) if len(prediction)>0 else batch["prediction"]
             reconstruction = torch.cat([reconstruction, batch["reconstruction"]], dim=0) if len(reconstruction)>0 else batch["reconstruction"]
-            prediction = prediction.cpu().numpy(),
+            prediction = prediction.argmax().cpu().numpy(),
             reconstruction = reconstruction.cpu().numpy()
             #reconstruction = postprocess_image(reconstruction, patient_info[id], current_spacing)
 
@@ -157,8 +157,6 @@ def generate_testing_set(ae:nn.Module , data_path:os.PathLike, alter_image:Calla
                 If set to default, will automatically load the test_ids from DATA_PATH/saved_ids.npy
 
     """
-
-
     # Creating the required paths
     required_paths = ["measures", "measures/preprocessed_model"]
     for path in required_paths:
@@ -199,80 +197,7 @@ def generate_testing_set(ae:nn.Module , data_path:os.PathLike, alter_image:Calla
         current_spacing=spacing,
         compute_results=False)
 
-def compute_correlation_results(data_path, test_ids = 'default', measures = 'both'):
-    # TODO : assert that required functions have been executed prior
-    # TODO : use evaluate_metrics within compute_results
-    """
-    Computes plottable and relevant results to evaluate the AE's performance on model data.
-    Returns (GT_to_model_GT, GT_to_model_pGT) as X,Y
 
-    Parameters
-    ----------
-        data_path: str
-            A string of the absolute or relative path to the specific root data folder eg. data/{application}
-        test_ids: list or 'default'
-            The list of the Ids to process, usually the testing set. Option 'default' will use the saved test_ids
-        measures: str (default='both')
-            Must be either 'hd', 'dc' or 'both'
-    Additional details
-    ------------------
-    GT_to_model_GT contains metric evaluations for the real GT and the model generated GT
-    GT_to_model_pGT contains metric evaluations between the real GT and the pGT generated from the model
-
-    The idea is that, if a model performs well, GT and model_GT will be close --> Low distance between GT and model_pGT.
-    If on the contratry a model performs badly, GT and model_GT will be different --> High distance between GT and model_pGT
-    """
-    assert measures in ['hd', 'dc', 'both'],"Parameter measures must be 'hd', 'dc' or 'both'"
-    
-
-    test_ids = np.load(os.path.join(data_path, 'saved_ids.npy'), allow_pickle=True).item().get('test_ids') if test_ids == 'default' else test_ids
-    
-    # Initialising results dictionary
-
-    results = {}
-    key_GT_to_model_GT, key_GT_to_model_pGT = 'GT_to_model_GT', 'GT_to_model_pGT'
-    results[key_GT_to_model_GT], results[key_GT_to_model_pGT] = {}, {}
-
-    # Finding out the measures used
-    dc, hd = False, False
-    
-    if measures == 'hd' or measures == 'both' : 
-        hd = True
-        for key in list(results.keys()) :
-            results[key]['hd'] = {}
-    if measures == 'dc' or measures == 'both' : 
-        dc = True
-        for key in list(results.keys()):
-            results[key]['dc'] = {}
-
-
-    for id in tqdm(test_ids, desc="Generating results: "):
-        # Retrieving the paths of all the images to compute results from
-        path_GT = os.path.join(data_path, 'structured/patient{:03d}/mask.nii.gz').format(id)
-        path_model_GT = os.path.join(data_path, 'measures/structured_model/patient{:03d}/mask.nii.gz').format(id)
-        path_model_pGT = os.path.join(data_path, 'measures/pGT/patient{:03d}/mask.nii.gz').format(id)
-        # Retrieving the images
-        model_GT = nib.load(path_model_GT).get_fdata()
-        GT = nib.load(path_GT).get_fdata()
-        model_pGT = nib.load(path_model_pGT).get_fdata()
-        # Removing the time dimension
-        if len(GT.shape) == 4: GT = GT[:, :, :, 0]
-        if len(model_GT.shape) == 4: model_GT = model_GT[:, :, :, 0]
-        if len(model_pGT.shape) == 4: model_pGT = model_pGT[:, :, :, 0]
-        # Appending the results
-        if dc :
-            GT_to_model_GT = (binary.dc(np.where(GT!=0, 1, 0), np.where(np.rint(model_GT)!=0, 1, 0)))
-            GT_to_model_pGT = (binary.dc(np.where(GT!=0, 1, 0), np.where(np.rint(model_pGT)!=0, 1, 0)))
-            results[key_GT_to_model_GT]['dc'][id] = GT_to_model_GT
-            results[key_GT_to_model_pGT]['dc'][id] = GT_to_model_pGT
-        if hd : 
-            GT_to_model_GT = (binary.hd(np.where(GT!=0, 1, 0), np.where(np.rint(model_GT)!=0, 1, 0)))
-            GT_to_model_pGT = (binary.hd(np.where(GT!=0, 1, 0), np.where(np.rint(model_pGT)!=0, 1, 0)))
-            results[key_GT_to_model_GT]['hd'][id] = GT_to_model_GT
-            results[key_GT_to_model_pGT]['hd'][id] = GT_to_model_pGT
-    np.save(os.path.join(data_path), 'correlation_results.npy', results)
-    return results
-  
 class Count_nan():
     def __init__(self):
         self.actual_nan = 0
@@ -298,47 +223,171 @@ class Count_nan():
         string += "Total discarded from the next plots: {}".format(self.total)
         return string
 
-def process_correlation_results(results:dict):
-    """
-        Takes the results dictionary and converts the measures dictionary into an array of values for that measure so it can be later plotted.
 
-        Parameters
-        ----------
-            resutls: dict
-                The results dictionary generated by compute_results()
-    """
-    keys = list(results.keys())
-    plots = {}
-    for key in keys: # GT_to_model_GT or GT_to_model_pGT
-        plots[key] = {}
-        for measure_key in (list(results[key].keys())) : # hd or dc
-            plots[key][measure_key] = list(results[key][measure_key].values())
-                
+def compute_correlation_results(data_path, model, test_ids = 'default', measures = 'both'):
+    assert measures in ['hd', 'dc', 'both'],"Parameter measures must be 'hd', 'dc' or 'both'"
+    test_ids = np.load(os.path.join(data_path, 'saved_ids.npy'), allow_pickle=True).item().get('test_ids') if test_ids == 'default' else test_ids
 
-    return plots
-
-def plot_correlation_results(results):
-    # TODO : Implement multiple keys support
-
-    plots = process_correlation_results(results)
-    measures = list(plots[list(plots.keys())[0]].keys())
-
-    fig, axs = plt.subplots(len(measures),1)
-    single = True if len(measures) == 1 else False
-    for i,measure in enumerate(measures):
-        x = plots['GT_to_model_GT'][measure]
-        y = plots['GT_to_model_pGT'][measure]
-        current_axe = axs[i] if not single else axs
+    # Finding out the measures used
+    dc, hd = False, False
+    if measures == 'hd' or measures == 'both' : hd = True
+    if measures == 'dc' or measures == 'both' : dc = True
+    
+    # Initialize dataframe
+    df_results = pd.DataFrame()
+    count_nan = Count_nan()
+    
+    for id in tqdm(test_ids, desc="Generating results: "):
+        # Retrieving the paths of all the images to compute results from
+        path_GT = os.path.join(data_path, 'structured/patient{:03d}/mask.nii.gz'.format(id))
+        path_model_GT = os.path.join(data_path, '{}/structured/patient{:03d}/mask.nii.gz'.format(model, id))
+        path_model_pGT = os.path.join(data_path, '{}/reconstructions/patient{:03d}/mask.nii.gz'.format(model, id))
         
-        current_axe.scatter(x,y)
-        current_axe.set_title(f'Results for {measure} :', loc='center')
-        current_axe.grid()
-        # if measure == 'dc':
-        #     current_axe.set_xlim(left=0, right=1)
-        #     current_axe.set_ylim(bottom=0, top=1)
-    fig.suptitle("Plotted measures")
-    fig.tight_layout()
-    plt.savefig('src/eval_results/correlation_plot.jpg')
+        # Retrieving the images
+        model_GT = nib.load(path_model_GT).get_fdata()
+        GT = nib.load(path_GT).get_fdata()
+        model_pGT = nib.load(path_model_pGT).get_fdata().squeeze().transpose(1,2,0).argmax(axis=-1)
+        
+        # Preprocessing
+        dim = GT.shape[:2]
+        model_pGT = CenterCrop(dim)((AddPadding(dim)(model_pGT))).transpose(1,2,0)
+        model_GT = CenterCrop(dim)((AddPadding(dim)(model_GT))).transpose(1,2,0)
+        
+        # Removing the time dimension
+        if len(GT.shape) == 4: GT = GT[:, :, :, 0]
+        if len(model_GT.shape) == 4: model_GT = model_GT[:, :, :, 0]
+        if len(model_pGT.shape) == 4: model_pGT = model_pGT[:, :, :, 0]
+        
+        # Compute metrics for each class and store in dataframe
+        for class_id in range(1, int(GT.max()) + 1):  # assuming class IDs are 0, 1, 2, ..., n
+            mask = (GT == class_id)
+            if dc:
+                dc_value = binary.dc(mask, np.rint(model_GT) == class_id)
+                df_results.loc[id, f'model_GT_K{class_id}_DC'] = dc_value
+                dc_value = binary.dc(mask, np.rint(model_pGT) == class_id)
+                df_results.loc[id, f'model_pGT_K{class_id}_DC'] = dc_value
+            if hd:
+                try: hd_value = binary.hd(mask, np.rint(model_GT) == class_id)
+                except: hd_value = np.nan
+                df_results.loc[id, f'model_GT_K{class_id}_HD'] = hd_value
+                try: hd_value = binary.hd(mask, np.rint(model_pGT) == class_id)
+                except: hd_value = np.nan
+                df_results.loc[id, f'model_pGT_K{class_id}_HD'] = hd_value
+
+    # Save results
+    #Set the id of patients as index
+    df_results.set_index(np.array(test_ids), inplace=True)
+    df_results.to_csv(os.path.join(data_path, 'results.csv'))
+    df_results = df_results.replace(0, np.nan)
+    print(count_nan(df_results))
+    df_results.dropna(inplace=True)
+    
+    return df_results
+
+
+def plot_distribution(df_results, args):
+    """
+    This function plots the distribution of the DC and HD scores for each class.
+
+    Parameters:
+    df_results (pd.DataFrame): The DataFrame containing the results.
+
+    Returns:
+    None
+    """
+    # Get the number of classes from the column names
+    num_classes = int((len(df_results.columns) / 4))
+
+    for class_id in range(1, num_classes):
+        # Extract the DC and HD values for this class
+        dc_model_GT = df_results[f'model_GT_K{class_id}_DC']
+        dc_model_pGT = df_results[f'model_pGT_K{class_id}_DC']
+        hd_model_GT = df_results[f'model_GT_K{class_id}_HD']
+        hd_model_pGT = df_results[f'model_pGT_K{class_id}_HD']
+
+        # Create a figure with two subplots
+        fig, axs = plt.subplots(2, 2, figsize=(10, 10))
+
+        # Plot the DC values for model_GT
+        axs[0, 0].hist(dc_model_GT, bins=20, alpha=0.5, color='b')
+        axs[0, 0].set_title(f'Class {class_id} model_GT DC')
+        axs[0, 0].set_xlabel('DC')
+        axs[0, 0].set_ylabel('Frequency')
+
+        # Plot the DC values for model_pGT
+        axs[0, 1].hist(dc_model_pGT, bins=20, alpha=0.5, color='r')
+        axs[0, 1].set_title(f'Class {class_id} model_pGT DC')
+        axs[0, 1].set_xlabel('DC')
+        axs[0, 1].set_ylabel('Frequency')
+
+        # Plot the HD values for model_GT
+        axs[1, 0].hist(hd_model_GT, bins=20, alpha=0.5, color='b')
+        axs[1, 0].set_title(f'Class {class_id} model_GT HD')
+        axs[1, 0].set_xlabel('HD')
+        axs[1, 0].set_ylabel('Frequency')
+
+        # Plot the HD values for model_pGT
+        axs[1, 1].hist(hd_model_pGT, bins=20, alpha=0.5, color='r')
+        axs[1, 1].set_title(f'Class {class_id} model_pGT HD')
+        axs[1, 1].set_xlabel('HD')
+        axs[1, 1].set_ylabel('Frequency')
+
+        # Show the figure
+        fig.suptitle("Plotted Distribution")
+        fig.tight_layout()
+        plt.show()
+        plt.savefig(f'logs/{args.model.lower()}_{args.segmentations.lower()}_{args.organ.lower()}_distribution_plot.jpg')
+
+
+def plot_correlation(df_results, args):
+    """
+    This function plots the correlation for each metric (DC and HD) between each class's pGT and GT.
+
+    Parameters:
+    df_results (pd.DataFrame): The DataFrame containing the results.
+
+    Returns:
+    None
+    """
+    # Get the number of classes from the column names
+    num_classes = int((len(df_results.columns) / 4))
+
+    # Create a figure with subplots
+    cols = 2 if num_classes < 2 else num_classes
+    fig, axs = plt.subplots(2, cols, figsize=(10 * num_classes, 10))
+
+    for class_id in range(num_classes):
+        # Extract the DC and HD values for model_GT and model_pGT for this class
+        dc_model_GT = df_results[f'model_GT_K{class_id+1}_DC']
+        dc_model_pGT = df_results[f'model_pGT_K{class_id+1}_DC']
+        hd_model_GT = df_results[f'model_GT_K{class_id+1}_HD']
+        hd_model_pGT = df_results[f'model_pGT_K{class_id+1}_HD']
+
+        # Plot the DC values
+        axs[0, class_id].scatter(dc_model_GT, dc_model_pGT)
+        try:
+            corr, _ = stats.pearsonr(dc_model_GT, dc_model_pGT)
+            axs[0, class_id].legend([f'Correlation: {corr:.2f}'])
+        except: axs[0, class_id].legend('Too many anomalies in the results to compute DC correlation')
+        axs[0, class_id].set_title(f'Class {class_id+1} DC')
+        axs[0, class_id].set_xlabel('model_GT')
+        axs[0, class_id].set_ylabel('model_pGT')
+
+        # Plot the HD values
+        axs[1, class_id].scatter(hd_model_GT, hd_model_pGT)
+        try:
+            corr, _ = stats.pearsonr(hd_model_GT, hd_model_pGT)
+            axs[1, class_id].legend([f'Correlation: {corr:.2f}'])
+        except: axs[1, class_id].legend('Too many anomalies in the results to compute HD correlation')
+        axs[1, class_id].set_title(f'Class {class_id+1} HD')
+        axs[1, class_id].set_xlabel('model_GT')
+        axs[1, class_id].set_ylabel('model_pGT')
+
+    # Show the figure
+    plt.suptitle("Plotted Correlation")
+    plt.tight_layout()
+    plt.savefig(f'logs/{args.model.lower()}_{args.segmentations.lower()}_{args.organ.lower()}_correlation_plot.jpg')
+
   
 def display_plots(plots):
     plt.rcParams['xtick.labelsize'] = 30#'x-large'
@@ -379,12 +428,14 @@ def display_plots(plots):
     grid = Image.fromarray(grid.astype(np.uint8))
     display(grid.resize((900,600), resample=Image.LANCZOS))
 
+
 def display_image(img, out_folder, name): 
     assert name is not None, "Choose a valid name for your save."
-    classes = np.unique(img)[-1]
+    classes = np.unique(img)[-1] if np.unique(img)[-1] > 0 else 1
     img_gray = (img * 255/classes).astype(np.uint8)
     cv2.imwrite(os.path.join(out_folder, name), img_gray)
     #Image.fromarray(img.astype(np.uint8)).save(f'{folder_out_img}/{name}')
+  
   
 def display_difference(prediction, reference, out_folder, name):
     class_ref, class_pred = np.unique(reference)[-1], np.unique(prediction)[-1]

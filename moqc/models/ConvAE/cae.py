@@ -131,7 +131,7 @@ class ConvAutoencoder(nn.Module):
             
     def training_routine(self, epochs, train_loader, val_loader, ckpt_folder=None):
         if ckpt_folder is not None and not os.path.isdir(ckpt_folder):
-            os.mkdir(ckpt_folder)
+            os.makedirs(ckpt_folder)
         history = []
         img_list = []
         best_acc = None

@@ -406,22 +406,13 @@ def preprocess(data_path:str,
     np.save(os.path.join(folder_out, "patient_info"), patient_info)
 
 
-def transform_aug(num_classes, model):
+def transform_aug(size, num_classes, model):
     transforms_available = {
         "cae": torchvision.transforms.Compose([
-            AddPadding((256,256)),
-            CenterCrop((256,256)),
+            AddPadding((size, size)),
+            CenterCrop((size, size)),
             OneHot(num_classes=num_classes),
             ToTensor()
-            #torchvision.transforms.ToTensor(),
-            #torchvision.transforms.Normalize((0.5),(0.5)),
-            #torchvision.transforms.Grayscale(num_output_channels=1),
-            #torchvision.transforms.Resize(256),
-            #torchvision.transforms.CenterCrop(256),
-            #torchvision.transforms.ToTensor(), # [0, 1]
-            #OneHot(num_classes=num_classes),
-            #torchvision.transforms.ToTensor(),
-            #torchvision.transforms.ToTensor()
         ]), 
         "dcgan": torchvision.transforms.Compose([
             torchvision.transforms.ToTensor(),

@@ -15,25 +15,12 @@ from models.loss import BKGDLoss, BKMSELoss, SSIMLoss, GDLoss
 from utils.preprocess import transform_aug
 from utils.dataset import NiftiDataset, DataLoader, train_val_test
 
-parser = argparse.ArgumentParser(description='Testing script for MOQC.')
 
-def main():
-    # Add command-line arguments
-    parser.add_argument('-d', '--data', type=str, 
-                        default='data', help='Data folder.')
-    parser.add_argument('-cf', '--config_file', type=str, 
-                        default='moqc/models/config.yml', help='Configuration file.')
-    parser.add_argument('-o', '--output', type=str,
-                        default='reconstructions', help='Output folder.')
-    parser.add_argument('--custom_params', type=bool, default=False, help='Enable custom parameters.')
-    parser.add_argument('-og', '--organ', type=str, help='Selected organ.')
-    parser.add_argument('-m', '--model', type=str, help='Model to be used.')
-    parser.add_argument('--verbose', action='store_false', help='Enable verbose mode.')
-
-    args = parser.parse_args()
-
+def main(args):
     DATA_PATH = os.path.join(args.data, args.organ)
-     
+    print("+-------------------------------------+")
+    print(f'Running in the following path: {DATA_PATH}.')
+    print("+-------------------------------------+")
     with open(args.config_file, 'r') as file:
         try:
             config = yaml.safe_load(file)
@@ -44,7 +31,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device selected: {device}.")
     
-    _,_,_ = train_val_test(data_path=DATA_PATH, split=[.9, .05, .05]) if not os.path.exists(os.path.join(DATA_PATH, "saved_ids.npy")) else (None, None, None)
+    if not os.path.exists(os.path.join(DATA_PATH, "saved_ids.npy")): _,_,_ = train_val_test(data_path=DATA_PATH, split=[.9, .05, .05]) 
 
     prepro_path = os.path.join(DATA_PATH, "preprocessed")
     
@@ -66,7 +53,7 @@ def main():
 
     assert optimal_parameters is not None, "Be sure to continue with a working set of hyperparameters"
 
-    transform, transform_augmentation = transform_aug(num_classes=parameters["in_channels"], model=args.model.lower())
+    transform, transform_augmentation = transform_aug(size=parameters["size"][args.organ], num_classes=parameters["in_channels"], model=args.model.lower())
 
     train_dataset = NiftiDataset(DATA_PATH+'/structured', transform=transform, mode='train')
     val_dataset = NiftiDataset(DATA_PATH+'/structured', transform=transform, mode='val')
@@ -100,4 +87,20 @@ def main():
     htlm_images(img_list, "logs/dcgan.html")
     
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='Testing script for MOQC.')
+
+    # Add command-line arguments
+    parser.add_argument('-d', '--data', type=str, 
+                        default='data', help='Data folder.')
+    parser.add_argument('-cf', '--config_file', type=str, 
+                        default='moqc/models/config.yml', help='Configuration file.')
+    parser.add_argument('-o', '--output', type=str,
+                        default='reconstructions', help='Output folder.')
+    parser.add_argument('--custom_params', type=bool, default=False, help='Enable custom parameters.')
+    parser.add_argument('-og', '--organ', type=str, help='Selected organ.')
+    parser.add_argument('-m', '--model', type=str, help='Model to be used.')
+    parser.add_argument('--verbose', action='store_false', help='Enable verbose mode.')
+
+    args = parser.parse_args()
+    
+    main(args)
