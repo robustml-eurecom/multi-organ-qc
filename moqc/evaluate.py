@@ -7,7 +7,7 @@ import argparse
 
 from utils.testing import display_image, display_difference, \
     testing, compute_correlation_results, \
-    plot_correlation_results, plot_correlation, plot_distribution
+    plot_correlation, plot_distribution
 from utils.preprocess import transform_aug
 from utils.dataset import NiftiDataset, train_val_test
 
@@ -46,8 +46,8 @@ def main(args):
     
     prepro_path = os.path.join(DATA_PATH, "preprocessed")
     optimal_parameters = load_opt_params(prepro_path, model=args.model.lower())
-    transform, _ = transform_aug(size=256, num_classes=optimal_parameters['in_channels'], model=args.model.lower())
-    eval_ids = range(len(os.listdir(os.path.join(DATA_PATH, f'{args.segmentations}/structured')))) #if args.load else np.load(os.path.join(DATA_PATH, 'saved_ids.npy'), allow_pickle=True).item().get('test_ids')
+    transform, _ = transform_aug(size=optimal_parameters["size"][args.organ], num_classes=optimal_parameters['in_channels'], model=args.model.lower())
+    eval_ids = np.load(os.path.join(DATA_PATH,'saved_ids.npy'), allow_pickle=True).item().get('test_ids') #if args.load else np.load(os.path.join(DATA_PATH, 'saved_ids.npy'), allow_pickle=True).item().get('test_ids')
     dataset = NiftiDataset(DATA_PATH+f'/{args.segmentations}/structured', transform=transform, mode='test', is_segment=True)
     
     if args.load: 
@@ -72,16 +72,15 @@ def main(args):
 
         prediction = nib.load(os.path.join(DATA_PATH, "{}/structured/patient{:03d}/mask.nii.gz".format(args.segmentations, patient_id))).get_fdata()
         reconstruction = nib.load(os.path.join(DATA_PATH,"{}/reconstructions/patient{:03d}/mask.nii.gz".format(args.segmentations, patient_id))).get_fdata().squeeze().transpose(1,2,0).argmax(axis=-1)
-        #gt = nib.load(os.path.join(DATA_PATH, "structured/patient{:03d}/mask.nii.gz".format(patient_id))).get_fdata()
+        gt = nib.load(os.path.join(DATA_PATH, "structured/patient{:03d}/mask.nii.gz".format(patient_id))).get_fdata()
 
         out_folder = f'evaluations/{args.organ}/patient_{patient_id:03d}'
         if not os.path.exists(out_folder): os.makedirs(out_folder)
-        
+        display_image(gt, out_folder, 'ground_truth.png')
         display_image(prediction, out_folder, 'prediction.png')
         display_image(reconstruction, out_folder, 'reconstruction.png')
         display_difference(prediction, reconstruction, out_folder, 'aberration_mask.png')
     
-
 
 if __name__ == "__main__":
     parser.add_argument('-d', '--data', type=str, 

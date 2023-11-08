@@ -8,6 +8,7 @@ import torch.nn as nn
 import lpips
 
 from models.ConvAE.cae import ConvAutoencoder
+from models.ConvAE.small_cae import SmallConvAutoencoder
 from models.GAN.dcgan import DCGAN
 from models.utils import plot_history, htlm_images
 from models.loss import BKGDLoss, BKMSELoss, SSIMLoss, GDLoss
@@ -53,6 +54,7 @@ def main(args):
 
     assert optimal_parameters is not None, "Be sure to continue with a working set of hyperparameters"
 
+    if "cae" in args.model.lower(): args.model = "cae"
     transform, transform_augmentation = transform_aug(size=parameters["size"][args.organ], num_classes=parameters["in_channels"], model=args.model.lower())
 
     train_dataset = NiftiDataset(DATA_PATH+'/structured', transform=transform, mode='train')
@@ -61,6 +63,11 @@ def main(args):
     if args.model.lower() == "dcgan": 
         model = DCGAN(**optimal_parameters).to(device)
     elif args.model.lower() == "cae": 
+        keys = config['run_params']['keys'] 
+        if optimal_parameters['classes'][args.organ] > 2: keys += [f'K{i}' for i in range(2, optimal_parameters['classes'][args.organ])]
+        DA = optimal_parameters["DA"]
+        model = ConvAutoencoder(keys=keys, **optimal_parameters).to(device)
+    elif args.model.lower() == "small_cae": 
         keys = config['run_params']['keys'] 
         if optimal_parameters['classes'][args.organ] > 2: keys += [f'K{i}' for i in range(2, optimal_parameters['classes'][args.organ])]
         DA = optimal_parameters["DA"]
