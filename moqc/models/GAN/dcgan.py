@@ -19,7 +19,7 @@ import lpips
 
 from models.loss import Loss
 from models.metrics import Metrics
-from models.ConvAE.cae import clean_old_checkpoints
+from models.CAE.cae import clean_old_checkpoints
 
 # Set random seed for reproducibility
 manualSeed = 999

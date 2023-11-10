@@ -228,14 +228,14 @@ class SpatialTransform():
 ############################
 
 class NiftiDataset(torch.utils.data.Dataset):
-    def __init__(self, root_dir, transform=None, mode=None, is_segment=False):
+    def __init__(self, root_dir, transform=None, mode='all', is_segment=False):
         self.root_dir = root_dir
         self.transform = transform
         self.mode = mode
         self.is_segment = is_segment
         split_dir = self.root_dir.split('/')[:-2] if is_segment else self.root_dir.split('/')[:-1]
         print("Getting {} ids from {}".format(mode, os.path.join("/".join(split_dir),'saved_ids.npy')))
-        self.ids = np.load(os.path.join("/".join(split_dir),'saved_ids.npy'), allow_pickle=True).item().get(f'{mode}_ids') if self.mode is not None else None
+        self.ids = np.load(os.path.join("/".join(split_dir),'saved_ids.npy'), allow_pickle=True).item().get(f'{mode}_ids') if self.mode is not 'all' else None
         self.image_paths = self.get_image_paths()
         
     def __len__(self):

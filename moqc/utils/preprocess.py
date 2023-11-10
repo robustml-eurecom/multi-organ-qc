@@ -127,7 +127,7 @@ def structure_dataset(data_path:str,
 
     Note
     ----
-        This limit of 1000 is solely dued to how the names are formatted (here :04d ; see source code). \n
+        This limit of 10000 is solely dued to how the names are formatted (here :04d ; see source code). \n
         The limit can be removed if the patient folder names are adjusted throughout the code.
 
     """
@@ -144,6 +144,7 @@ def structure_dataset(data_path:str,
     destination_folder = os.path.join(data_path, destination_folder)
 
     os.makedirs(destination_folder) if not os.path.exists(destination_folder) else None
+    mask_paths = mask_paths[:10000]
     
     mask_paths.sort()
     destination_folder = os.path.join(os.getcwd(), destination_folder)

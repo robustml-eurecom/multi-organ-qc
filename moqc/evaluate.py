@@ -48,9 +48,8 @@ def main(args):
     prepro_path = os.path.join(DATA_PATH, "preprocessed")
     optimal_parameters = load_opt_params(prepro_path, model=args.model.lower())
     transform, _ = transform_aug(size=optimal_parameters["size"][args.organ], num_classes=optimal_parameters['in_channels'], model=args.model.lower())
-    eval_ids = range(len(os.listdir(os.path.join(DATA_PATH, f'{args.segmentations}/structured')))) 
-    #eval_ids = np.load(os.path.join(DATA_PATH,'saved_ids.npy'), allow_pickle=True).item().get('test_ids') #if args.load else np.load(os.path.join(DATA_PATH, 'saved_ids.npy'), allow_pickle=True).item().get('test_ids')
-    dataset = NiftiDataset(DATA_PATH+f'/{args.segmentations}/structured', transform=transform, mode=None, is_segment=True)
+    eval_ids = np.load(os.path.join(DATA_PATH,'saved_ids.npy'), allow_pickle=True).item().get('test_ids') 
+    dataset = NiftiDataset(DATA_PATH+f'/{args.segmentations}/structured', transform=transform, is_segment=True)
     
     if args.load: 
         if args.model.lower() == 'cae': model = ConvAutoencoder(keys=config["run_params"]["keys"], 
@@ -67,7 +66,7 @@ def main(args):
             test_loader=torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False, num_workers=8),
             folder_predictions=os.path.join(DATA_PATH, f'{args.segmentations}/structured'),
             folder_out=os.path.join(DATA_PATH, f'{args.segmentations}'),
-            ids=eval_ids,
+            ids=dataset.ids,
             compute_results=False)
         
     if args.correlation: finalize_results(DATA_PATH, args, eval_ids)

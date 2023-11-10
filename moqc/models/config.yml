@@ -32,7 +32,7 @@ parameters : {
         "discriminator_feat": 64
     },
     "cae": {
-        "batch_size": {'heart': 4, 'lung': 2, 'prostate': 4, 'spleen': 2, 'brain': 8, 'hippocampus': 4},
+        "batch_size": {'heart': 4, 'lung': 2, 'prostate': 4, 'spleen': 2, 'brain': 32, 'hippocampus': 4},
         "size": {'heart': 256, 'lung': 512, 'prostate': 320, 'spleen': 512, 'brain': 256, 'hippocampus': 48},
         "epochs": 500,
         "DA": False,
@@ -45,7 +45,7 @@ parameters : {
         "settling_epochs_BKMSELoss": 0
     },
     "small_cae": {
-        "batch_size": {'heart': 8, 'lung': 2, 'prostate': 8, 'spleen': 4, 'brain': 8, 'hippocampus': 16},
+        "batch_size": {'heart': 8, 'lung': 2, 'prostate': 8, 'spleen': 4, 'brain': 32, 'hippocampus': 16},
         "size": {'heart': 256, 'lung': 256, 'prostate': 256, 'spleen': 512, 'brain': 256, 'hippocampus': 48},
         "epochs": 500,
         "DA": False,
