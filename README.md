@@ -1,7 +1,7 @@
 # _Multi-organ QC_ : Quality Control on medical images segmentations using AutoEncoders
 
 ## Overview
-This repository contains the code to run a quality control (QC) on medical images segmentations. The QC is based on a deep learning approach, namely an AutoEncoder (AE), which is trained to reconstruct the input mask. The difference between the input mask and the reconstructed one is the QC check. Results about the variou scoresand _correlation_ will complete the comprehensive evaluation.
+This repository contains the code to run a quality control (QC) on medical images segmentations. The QC is based on a deep learning approach, namely an AutoEncoder (AE), which is trained to reconstruct the input mask. The difference between the input mask and the reconstructed one is the QC check. Results about the various scores and _correlation_ will complete the comprehensive evaluation.
 
 If you need a guided tutorial, please find it in the jupyter notebook ```notebooks/tutorial.ipynb```.
 
