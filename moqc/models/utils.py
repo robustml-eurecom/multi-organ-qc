@@ -10,7 +10,7 @@ from IPython.display import HTML
 from torch.autograd import Variable
 
 from medpy.metric import binary
-from .ConvAE.cae import ConvAutoencoder
+from .CAE.cae import ConvAutoencoder
 
 #use gpu if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

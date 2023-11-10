@@ -32,8 +32,8 @@ parameters : {
         "discriminator_feat": 64
     },
     "cae": {
-        "batch_size": {'heart': 4, 'lung': 2, 'prostate': 2, 'spleen': 2, 'brain': 8, 'hippocampus': 4},
-        "size": {'heart': 256, 'lung': 512, 'prostate': 256, 'spleen': 512, 'brain': 256, 'hippocampus': 64},
+        "batch_size": {'heart': 4, 'lung': 2, 'prostate': 4, 'spleen': 2, 'brain': 8, 'hippocampus': 4},
+        "size": {'heart': 256, 'lung': 512, 'prostate': 320, 'spleen': 512, 'brain': 256, 'hippocampus': 48},
         "epochs": 500,
         "DA": False,
         "classes": {'heart': 2, 'lung': 2, 'prostate': 3, 'spleen': 2, 'brain': 4, 'hippocampus': 3}, 
@@ -45,12 +45,12 @@ parameters : {
         "settling_epochs_BKMSELoss": 0
     },
     "small_cae": {
-        "batch_size": {'heart': 4, 'lung': 2, 'prostate': 2, 'spleen': 2, 'brain': 8, 'hippocampus': 16},
-        "size": {'heart': 256, 'lung': 512, 'prostate': 256, 'spleen': 512, 'brain': 256, 'hippocampus': 64},
+        "batch_size": {'heart': 8, 'lung': 2, 'prostate': 8, 'spleen': 4, 'brain': 8, 'hippocampus': 16},
+        "size": {'heart': 256, 'lung': 256, 'prostate': 256, 'spleen': 512, 'brain': 256, 'hippocampus': 48},
         "epochs": 500,
         "DA": False,
         "classes": {'heart': 2, 'lung': 2, 'prostate': 3, 'spleen': 2, 'brain': 4, 'hippocampus': 3}, 
-        "latent_channels": 10,
+        "latent_channels": 100,
         "activation": "leaky_relu",
         "lr": .0002,
         "weight_decay": .00005,

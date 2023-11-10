@@ -127,7 +127,7 @@ def structure_dataset(data_path:str,
 
     Note
     ----
-        This limit of 1000 is solely dued to how the names are formatted (here :03d ; see source code). \n
+        This limit of 1000 is solely dued to how the names are formatted (here :04d ; see source code). \n
         The limit can be removed if the patient folder names are adjusted throughout the code.
 
     """
@@ -158,7 +158,7 @@ def structure_dataset(data_path:str,
                 convert_image = True if image_path.endswith(".nii") else False
         else : convert_image = False
         # Creating the patient folder
-        patient_target_folder = os.path.join(destination_folder, "patient{:03d}".format(i))
+        patient_target_folder = os.path.join(destination_folder, "patient{:04d}".format(i))
         os.makedirs(patient_target_folder) if not os.path.exists(patient_target_folder) else None
 
         # Changing target names according to .nii or .nii.gz extensions
@@ -248,7 +248,7 @@ def generate_patient_info(data_path:str,
         patient_ids.remove(id) # removing absent images or masks
     patient_info = {}
     for id in tqdm(range(len(patient_ids)), desc = 'Generate info progress Bar'):
-        patient_folder = os.path.join(dataset_folder, 'patient{:03d}'.format(id))
+        patient_folder = os.path.join(dataset_folder, 'patient{:04d}'.format(id))
         image = nib.load(os.path.join(patient_folder, fileName))
         patient_info[id] = {} # Initialising the dict for specified id
         patient_info[id]["shape"] = image.get_fdata().shape
@@ -259,7 +259,7 @@ def generate_patient_info(data_path:str,
         patient_info[id]["header"] = image.header
         patient_info[id]["affine"] = image.affine
         if(id%verbose_rate == 0 and verbose) : 
-            print("Just processed patient {PATIENT_ID:03d} out of {TOTAL:03d}".format(PATIENT_ID = id, TOTAL=len(patient_ids)))
+            print("Just processed patient {PATIENT_ID:04d} out of {TOTAL:04d}".format(PATIENT_ID = id, TOTAL=len(patient_ids)))
 
     patient_info_folder = os.path.join(data_path, 'preprocessed')
     if not os.path.exists(patient_info_folder):
@@ -347,7 +347,7 @@ def preprocess(data_path:str,
     """
     folder_in = os.path.join(data_path, 'structured')
     folder_out = os.path.join(data_path, 'preprocessed'if alter_image==None else 'measures/preprocessed_model') 
-    get_patient_folder = lambda folder, id: os.path.join(folder, 'patient{:03d}'.format(id))
+    get_patient_folder = lambda folder, id: os.path.join(folder, 'patient{:04d}'.format(id))
     get_fname = lambda : "mask.nii.gz"
 
     # Getting patient_info
@@ -380,7 +380,7 @@ def preprocess(data_path:str,
             for i in range(np.shape(sample)[2]):
                 sample[:,:,i] = alter_image(sample[:,:,i])
 
-            folder_out_patient = os.path.join(data_path,'measures/structured_model', f'patient{id:03d}')
+            folder_out_patient = os.path.join(data_path,'measures/structured_model', f'patient{id:04d}')
             if not os.path.exists(folder_out_patient) : os.makedirs(folder_out_patient)
 
             nib.save(
@@ -400,15 +400,21 @@ def preprocess(data_path:str,
         patient_info[id]["processed_shape"] = processed_shape
         images.append(image)
         images = np.vstack(images)
-        np.save(os.path.join(folder_out, "patient{:03d}".format(id)), images.astype(np.float32))
+        np.save(os.path.join(folder_out, "patient{:04d}".format(id)), images.astype(np.float32))
         if(verbose and id%10 == 0) : 
-            print("Finished processing patient {:03d}".format(id))
+            print("Finished processing patient {:04d}".format(id))
     np.save(os.path.join(folder_out, "patient_info"), patient_info)
 
 
 def transform_aug(size, num_classes, model):
     transforms_available = {
         "cae": torchvision.transforms.Compose([
+            AddPadding((size, size)),
+            CenterCrop((size, size)),
+            OneHot(num_classes=num_classes),
+            ToTensor()
+        ]), 
+        "small_cae": torchvision.transforms.Compose([
             AddPadding((size, size)),
             CenterCrop((size, size)),
             OneHot(num_classes=num_classes),

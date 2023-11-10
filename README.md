@@ -1,31 +1,51 @@
-# _Multi-organ QC_ : an attempt for a single modular package for multi-organ Quality Control on medical images
+# _Multi-organ QC_ : Quality Control on medical images segmentations using AutoEncoders
 
-## Steps
+## Overview
+This repository contains the code to run a quality control (QC) on medical images segmentations. The QC is based on a deep learning approach, namely an AutoEncoder (AE), which is trained to reconstruct the input mask. The difference between the input mask and the reconstructed one is the QC check. Results about the variou scoresand _correlation_ will complete the comprehensive evaluation.
 
-### 1. Load your data
-Upload medical images in .nii format for your organ study. By default, it's intended the user injects the following folder structure:
+If you need a guided tutorial, please find it in the jupyter notebook ```notebooks/tutorial.ipynb```.
+
+## Requirements
+* _Python_ > 3.8
+* _PyTorch_ 1.12.0+cu113 (or whatever will best fit your machine. Note that this can cause some issues with the CUDA version, so please check the PyTorch website for the best fitting version)
+* _Torchvision_ 0.13.0+cu113 (same as above)
+* _Numpy_
+* _Matplotlib_
+* _Nibabel_
+* _Scikit-learn_
+* _Scipy_
+* _tqdm_
+
+You can find other requirements in the ```requirements.txt``` file. 
+
+##  Important notes on data loading and preprocessing
+
+### 1. Loading
+You can choose the folder structure that fits the most for your convenience. In our case labels are retrieved by Medical Segmentation Decathlon dataset (MSD), and the segmentations are stored in custom folders corresponding at each UNet to be tested. After running a custom script (more info in the `tutorial.ipynb`) the final structure **MUST** be the following:
 
     📦data
     ┣ 📂organ1
-    ┃ ┗ 📂segmentations
-    ┃ ┗ 📂measures
+    ┃ ┗ 📂labels
+    ┃ ┃ ┣ 📜organ1_xxx_slice_yyy_.nii.gz
+    ┃ ┃ ┗ 📜...
+    ┃ ┗ 📂unet_1
+    ┃ ┃ ┗ 📂segmentations
+    ┃ ┃   ┣ 📜organ1_xxx_slice_yyy_.nii.gz
+    ┃ ┃   ┗ 📜...
+    ┃ ┗ 📂unet_2
+    ┃ ┃ ┗ 📂segmentations
+    ┃ ┗ 📂...
     ┗ 📂organ2
-    ┃ ┗ 📂segmentations
-    ┃ ┗ 📂measures
+    ┃ ┣ 📂unet_1
+    ┃ ┣ 📂unet_2
+    ┃ ┣ 📂...
+    ┃ ┗ 📂labels
     ┗ 📂...
 
-
-Pay attention in letting each organ folder including the two folders as displayed: this allows the package to navigate properly between the generated masks, and do not creating misunderstandings. 
-
-
-_06-09-2023 Update: tested on Liver and Brain segmentations._
-_25-09-23 Update: included synthetic model segmention generation for personal evaluation_
-
-
 ### 2. Preprocess data
-Important step to let your data accomplish the previous dataset structure in an automatic way. Do not run it if you already have your segmentations as shown before.To start processing and injecting the loaded data, run on your machine the following prompt:
+**_Do not run it if you already have your segmentations as shown before_**. To start processing and injecting the loaded data, run on your machine the following prompt as the `tutorial` suggests:
  ```
- python moqc/data_prepration.py
+ python moqc/data_prepration.py --flags
  ```
 A series of displayables will notify you about the process progress.
 
@@ -35,61 +55,74 @@ At the end, the folder updates with the following structure:
     ┗ 📂organ1
     ┃ ┣ 📂preprocessed
     ┃ ┃ ┣ 📜patient_info.npy
-    ┃ ┃ ┣ 📜patient0_info.npy
+    ┃ ┃ ┣ 📜patient0000_info.npy
     ┃ ┃ ┣ 📜...
-    ┃ ┃ ┗ 📜patientN_info.npy
+    ┃ ┃ ┗ 📜patientNNNN_info.npy
     ┃ ┗ 📂structured
-    ┃ ┃ ┣ 📂patient0
-    ┃ ┃ ┃ ┗ 📜mask.nii.gz
+    ┃ ┃ ┣ 📂patient0000
+    ┃ ┃ ┃  ┗ 📜mask.nii.gz
     ┃ ┃ ┣ 📂...
-    ┃ ┃ ┗ 📂patientN
-    ┃ ┃ ┃ ┗ 📜mask.nii.gz
+    ┃ ┃ ┗ 📂patientNNNN
+    ┃ ┗ 📂unet_1
+    ┃ ┃ ┗ 📂structured
+    ┃ ┃ ┗ 📂preprocessed
+    ┃ ┗ 📂unet_2
+    ┃   ┗ 📂structured
+    ┃   ┗ 📂preprocessed
+    ┗ 📂...
+    
 
-This applies for each preprocessed organ. **NOTE**: during the preprocessing step, old files are deleted, hence consider keeping a backup folder.
+This applies for each preprocessed organ. 
 
-_06-09-2023 Update: arguments must be declared in the aforementioned script before running. TODO: including line arguments._
+**NOTE**: during the preprocessing step, old files (e.g., `data/organ1/labels` and `data/organ1/unet_N/segmentations`) are deleted, hence consider keeping a backup folder.
 
-### (Optional) Step 3.a Fine tuning
-Skip this if you already have an optimal parameter list to test, and see Step 3.b (there's a suggested hyperparameter list in ```models/config.py```, but you can pass yours). Otherwise run the prompt:
+## Model training and evaluation
+
+### (Optional) Fine tuning
+Skip this if you already have an optimal parameter list to test  (there's a suggested hyperparameter list in ```models/config.py```, but you can pass yours). Otherwise run the prompt:
 
 ```
 python moqc/tuning.py
 ```
 
-### Step 3.b Training
-Automatically detects the available gpu or cpu. This trains the AutoEncoder net for mask reconstruction. Checkpoints are saved in the chosen organ data path ``` data/organ/checkpoints ```. Run the prompt:
+### Training
+Automatically detects the available gpu or cpu. This trains the AutoEncoder net for mask reconstruction. Checkpoints are saved in the chosen organ data path ``` data/organ/checkpoints/model ```. Run the prompt:
 
 ```
-python moqc/train.py
+python moqc/train.py --flags
+```
+More info on `tutorial.ipynb`.
+
+### Testing & Evaluating
+Test the AE performances on a test set. This saves the reconstructions files in a folder ``` data/organ/reconstructions``` to be used for evaluation. Images are in .nii.gz, and they follow the same skeleton provided in the Data section. To test, run:
+```
+python moqc/test.py --flags
 ```
 
-### Step 4 Testing & Evaluating
-Test the AE performances on a test set. This saves the reconstructions files in a folder ``` data/organ/reconstructions``` to be used for evaluation. Images are in .nii.gz, and they follow the same skeleton provided in Step 2. To test, run:
-```
-python moqc/test.py
-```
-
-In order to evaluate, simply run:
+The evaluation instead is performed by running the model at inference time, trying to reconstruct the input UNet mask. Please refer to the `tutorial.ipynb` for more info. Run the prompt:
 
 ```
-python moqc/evaluate.py
+python moqc/evaluate.py --flags
 ```
 
 After selecting a patient ID, the app will save in a dedicated folder (namely ```evaluations/```) the following png images:
 
     📦evaluations
-    ┣ 📂patient_ID
-    ┃ ┣ 📜diff_patient_ID.png 
-    ┃ ┣ 📜pred_patient_ID.png
-    ┃ ┗ 📜reconst_patient_ID.png
+    ┣ 📂patient_NNNN
+    ┃ ┣ 📜aberration_mask.png
+    ┃ ┣ 📜prediction.png 
+    ┃ ┣ 📜reconstruction.png
+    ┃ ┗ 📜ground_truth.png
     ┗ 📂...
 
 
-Where _diff_patient_ID.png_ stands for the aberration mask after the QC check, _pred_patient_ID.png_ for the segmentations provided, and _reconst_patient_ID.png_ for the AE reconstruction.
+Where _aberration_mask.png_ stands for the anomalies identified by the model (the difference between the input mask and the reconstructed one), _prediction.png_ is the input mask segmentation (given by the tested UNet), _reconstruction.png_ is the reconstructed mask, and _ground_truth.png_ is the ground truth mask (given by MSD in our case).
 
-_07-09-2023 Update_: 
-* _Patient ID is internally randomically selected. TODO: pass it as a cmd arg_:
-* _You can select IDs coming from the already processed test set. TODO: implement a full pipeline from out-of-data subjects._
+Depending on the activation or not of the parameter `--correlation`, the model would eventually output a _.csv_ file containing the scores results (Dice Score and Hussendorf Distance) and the correlation (_Person R^2_) between the reconstruction and ground truth given a specific input mask. Correlation plots are saved in `logs/` folder, and they are named accordingly by the organ, the AE model and the UNet model. The notebook in `notebooks/results_analysis.ipynb` can be used to further investigate the all set of results.
+
+Please, refer to the `tutorial.ipynb` for more info. And, as always, feel free to contact me for any question or suggestion by opening an issue if you find any bug or problem :smile:.
+
+
 
 
 

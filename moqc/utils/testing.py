@@ -95,7 +95,8 @@ def testing(ae, data_path:os.PathLike,
             folder_predictions:os.PathLike='default', #Used for computing results
             folder_out:os.PathLike='default', 
             current_spacing:list='default', 
-            compute_results:bool = True):
+            compute_results:bool = True,
+            ids=None):
     """
     For every patient in the DataLoader, loads it and runs the ae on it. \n
     Then, generates its reconstruction, runs postprocess on top and saves a .nii.gz version of it in folder_out/{patient_folder}.
@@ -105,25 +106,25 @@ def testing(ae, data_path:os.PathLike,
     current_spacing = median_spacing_target(os.path.join(data_path, 'preprocessed')) if current_spacing=='default' else current_spacing
     folder_predictions=os.path.join(data_path, 'structured') if folder_predictions==None else folder_predictions
     folder_out = os.path.join(data_path, 'reconstructions')if folder_out==None else folder_out
+    
     ae.eval()
     with torch.no_grad():
         results = {}
         for i, batch in tqdm(enumerate(test_loader), desc="Evaluating testing images: "):
-            id = i
+            id = ids[i]
             prediction, reconstruction = [], []
             #for batch in patient: 
             batch = {"prediction": batch.to(device)}
             batch["reconstruction"], _ = ae.forward(batch["prediction"])
             prediction = torch.cat([prediction, batch["prediction"]], dim=0) if len(prediction)>0 else batch["prediction"]
             reconstruction = torch.cat([reconstruction, batch["reconstruction"]], dim=0) if len(reconstruction)>0 else batch["reconstruction"]
-            prediction = prediction.argmax().cpu().numpy(),
+            prediction = prediction.cpu().numpy(),
             reconstruction = reconstruction.cpu().numpy()
             #reconstruction = postprocess_image(reconstruction, patient_info[id], current_spacing)
-
-            folder_out_patient = os.path.join(folder_out, "patient{:03d}".format(id))
+            folder_out_patient = os.path.join(folder_out, 'reconstructions', "patient{:04d}".format(id))
             if compute_results :
-                results["patient{:03d}".format(id)] = evaluate_metrics(
-                    nib.load(os.path.join(folder_predictions, f"patient{id:03d}", "mask.nii.gz")).get_fdata(),
+                results["patient{:04d}".format(id)] = evaluate_metrics(
+                    nib.load(os.path.join(folder_predictions, f"patient{id:04d}", "mask.nii.gz")).get_fdata(),
                     reconstruction,
                     keys = None
                 )
@@ -239,9 +240,9 @@ def compute_correlation_results(data_path, model, test_ids = 'default', measures
     
     for id in tqdm(test_ids, desc="Generating results: "):
         # Retrieving the paths of all the images to compute results from
-        path_GT = os.path.join(data_path, 'structured/patient{:03d}/mask.nii.gz'.format(id))
-        path_model_GT = os.path.join(data_path, '{}/structured/patient{:03d}/mask.nii.gz'.format(model, id))
-        path_model_pGT = os.path.join(data_path, '{}/reconstructions/patient{:03d}/mask.nii.gz'.format(model, id))
+        path_GT = os.path.join(data_path, 'structured/patient{:04d}/mask.nii.gz'.format(id))
+        path_model_GT = os.path.join(data_path, '{}/structured/patient{:04d}/mask.nii.gz'.format(model, id))
+        path_model_pGT = os.path.join(data_path, '{}/reconstructions/patient{:04d}/mask.nii.gz'.format(model, id))
         
         # Retrieving the images
         model_GT = nib.load(path_model_GT).get_fdata()
@@ -277,10 +278,10 @@ def compute_correlation_results(data_path, model, test_ids = 'default', measures
     # Save results
     #Set the id of patients as index
     df_results.set_index(np.array(test_ids), inplace=True)
-    df_results.to_csv(os.path.join(data_path, 'results.csv'))
-    df_results = df_results.replace(0, np.nan)
+    df_results = df_results.replace(0.0, np.nan)
     print(count_nan(df_results))
     df_results.dropna(inplace=True)
+    df_results.to_csv(os.path.join(data_path, 'results.csv'))
     
     return df_results
 

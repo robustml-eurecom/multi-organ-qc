@@ -2,14 +2,15 @@ import os
 import torch
 import yaml
 import argparse
+import numpy as np
 
-from models.ConvAE.cae import ConvAutoencoder
+from models.CAE.cae import ConvAutoencoder
+from models.CAE.small_cae import SmallConvAutoencoder
 from models.utils import load_opt_params
 
 from utils.testing import testing
 from utils.dataset import DataLoader, NiftiDataset
 from utils.preprocess import transform_aug
-
 
 
 def main(args):
@@ -35,13 +36,20 @@ def main(args):
                          **optimal_parameters
                          ).to(device)
     model.load_checkpoint(data_path=DATA_PATH, eval=True)
-    dataset = NiftiDataset(DATA_PATH+'/structured', transform=transform)
+    eval_ids = np.load(os.path.join(DATA_PATH,'saved_ids.npy'), allow_pickle=True).item().get('test_ids')
     
+    if args.model.lower() == 'cae': model = ConvAutoencoder(keys=config["run_params"]["keys"], 
+                            **optimal_parameters
+                            ).to(device)
+    elif args.model.lower() == 'small_cae': model = SmallConvAutoencoder(keys=config["run_params"]["keys"], 
+                            **optimal_parameters
+                            ).to(device)
     _ = testing(
         ae=model, 
         data_path=DATA_PATH,
         test_loader=torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False, num_workers=8),
         folder_out=os.path.join(DATA_PATH, args.output),
+        ids=eval_ids,
         compute_results=False)
     
 

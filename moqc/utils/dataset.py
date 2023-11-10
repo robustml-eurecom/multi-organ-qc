@@ -8,7 +8,7 @@ import nibabel as nib
 from batchgenerators.augmentations.spatial_transformations import augment_spatial
 
 
-def select_valid_imgs(data_path:str, save_path:str, inter_slice_range:list=[4, 14], non_zero_thres:float=0.1):
+def select_valid_imgs(data_path:str, save_path:str, inter_slice_range:list=[1, 200], non_zero_thres:float=0.1):
     """
     Select and save valid slices from 3D MRI label and segmentation images as 2D NIfTI images.
 
@@ -44,7 +44,7 @@ def select_valid_imgs(data_path:str, save_path:str, inter_slice_range:list=[4, 1
             if new_img.shape[0] < inter_slice_range[1]: max_slice = new_img.shape[0]
             for slice in range(inter_slice_range[0], max_slice):
                 #print(np.sum(new_img[slice])/np.prod(new_img[slice].shape))
-                if non_zero_thres is None or np.sum(new_img[slice]) > non_zero_thres:
+                if non_zero_thres is None or np.sum(new_img[slice])/np.prod(new_img[slice].shape) > non_zero_thres:
                     nib.save(nib.Nifti1Image(np.expand_dims(new_img[slice], -1), img.affine), os.path.join(to_save, label_f.replace('.nii', f'_slice_{slice}.nii')))
     
 # Get the list of files in each directory
@@ -72,15 +72,14 @@ def remove_non_common_files(dir1, dir2):
     # Find the differences between the two sets of files
     diff1 = files1.difference(files2)
     diff2 = files2.difference(files1)
-    print(len(files1), len(diff1))
     # Remove the files that are not common between the two directories
     for file in diff1:
         os.remove(os.path.join(dir1, file))
 
     for file in diff2:
         os.remove(os.path.join(dir2, file))
-    print(len(files1), len(diff1))
-
+    print(f'Removed {len(files1)} files from {dir1}, and {len(diff1)} files from {dir2}.')
+    
     
 def train_val_test(data_path:str, ids_range:range='default', split=[0.70, 0.15, 0.15], shuffle = True, Force=False):
     """
@@ -106,7 +105,7 @@ def train_val_test(data_path:str, ids_range:range='default', split=[0.70, 0.15, 
     assert all([0<=split[i]<=1 for i in range(len(split))]), f"Split values must all be between 0 and 1."
 
     patient_info = np.load(os.path.join(data_path, 'preprocessed/patient_info.npy'), allow_pickle=True).item()
-    ids_range = range(len(patient_info)) if ids_range == 'default' else ids_range
+    ids_range = range(len(os.listdir(f'{data_path}/structured'))) if ids_range == 'default' else ids_range
 
     ids = [i for i in ids_range]
     np.random.shuffle(ids)
@@ -263,6 +262,7 @@ class NiftiDataset(torch.utils.data.Dataset):
                 if os.path.exists(nifti_file):
                     image_paths.append(nifti_file)
         return image_paths
+
 
 class DataLoader(torch.utils.data.DataLoader):
     def __init__(self, data_path:str, mode:str, root_dir:str='default', patient_ids=None, batch_size=None, transform=None, num_workers=0):

@@ -7,8 +7,8 @@ import torch
 import torch.nn as nn
 import lpips
 
-from models.ConvAE.cae import ConvAutoencoder
-from models.ConvAE.small_cae import SmallConvAutoencoder
+from models.CAE.cae import ConvAutoencoder
+from models.CAE.small_cae import SmallConvAutoencoder
 from models.GAN.dcgan import DCGAN
 from models.utils import plot_history, htlm_images
 from models.loss import BKGDLoss, BKMSELoss, SSIMLoss, GDLoss
@@ -32,7 +32,7 @@ def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device selected: {device}.")
     
-    if not os.path.exists(os.path.join(DATA_PATH, "saved_ids.npy")): _,_,_ = train_val_test(data_path=DATA_PATH, split=[.9, .05, .05]) 
+    if not os.path.exists(os.path.join(DATA_PATH, "saved_ids.npy")): _,_,_ = train_val_test(data_path=DATA_PATH, split=[.8, .1, .1]) 
 
     prepro_path = os.path.join(DATA_PATH, "preprocessed")
     
@@ -54,8 +54,8 @@ def main(args):
 
     assert optimal_parameters is not None, "Be sure to continue with a working set of hyperparameters"
 
-    if "cae" in args.model.lower(): args.model = "cae"
     transform, transform_augmentation = transform_aug(size=parameters["size"][args.organ], num_classes=parameters["in_channels"], model=args.model.lower())
+    
 
     train_dataset = NiftiDataset(DATA_PATH+'/structured', transform=transform, mode='train')
     val_dataset = NiftiDataset(DATA_PATH+'/structured', transform=transform, mode='val')
@@ -71,7 +71,7 @@ def main(args):
         keys = config['run_params']['keys'] 
         if optimal_parameters['classes'][args.organ] > 2: keys += [f'K{i}' for i in range(2, optimal_parameters['classes'][args.organ])]
         DA = optimal_parameters["DA"]
-        model = ConvAutoencoder(keys=keys, **optimal_parameters).to(device)
+        model = SmallConvAutoencoder(keys=keys, **optimal_parameters).to(device)
     print(model)
     
     ckpt = None
@@ -86,7 +86,7 @@ def main(args):
     history, img_list = model.training_routine(
                 range(start, parameters["epochs"]),
                 torch.utils.data.DataLoader(train_dataset, batch_size=parameters['batch_size'][args.organ], shuffle=True, num_workers=8),
-                torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=8),
+                torch.utils.data.DataLoader(val_dataset, batch_size=parameters['batch_size'][args.organ], shuffle=False, num_workers=8),
                 ckpt_folder=os.path.join(DATA_PATH, f"checkpoints/{args.model.lower()}"),
             )
     
