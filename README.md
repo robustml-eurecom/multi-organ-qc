@@ -5,7 +5,7 @@ This repository contains the code to run a quality control (QC) on medical image
 
 If you need a guided tutorial, please find it in the jupyter notebook ```notebooks/tutorial.ipynb```.
 
-## Requirements
+## :computer: Requirements
 * _Python_ > 3.8
 * _PyTorch_ 1.12.0+cu113 (or whatever will best fit your machine. Note that this can cause some issues with the CUDA version, so please check the PyTorch website for the best fitting version)
 * _Torchvision_ 0.13.0+cu113 (same as above)
@@ -18,7 +18,7 @@ If you need a guided tutorial, please find it in the jupyter notebook ```noteboo
 
 You can find other requirements in the ```requirements.txt``` file. 
 
-##  Important notes on data loading and preprocessing
+## :pencil: Important notes on data loading and preprocessing
 
 ### 1. Loading
 You can choose the folder structure that fits the most for your convenience. In our case labels are retrieved by Medical Segmentation Decathlon dataset (MSD), and the segmentations are stored in custom folders corresponding at each UNet to be tested. After running a custom script (more info in the `tutorial.ipynb`) the final structure **MUST** be the following:
@@ -120,6 +120,10 @@ Where _aberration_mask.png_ stands for the anomalies identified by the model (th
 
 Depending on the activation or not of the parameter `--correlation`, the model would eventually output a _.csv_ file containing the scores results (Dice Score and Hussendorf Distance) and the correlation (_Person R^2_) between the reconstruction and ground truth given a specific input mask. Correlation plots are saved in `logs/` folder, and they are named accordingly by the organ, the AE model and the UNet model. The notebook in `notebooks/results_analysis.ipynb` can be used to further investigate the all set of results.
 
+# :notebook: Relevant Updates
+_Update_10_11_23_: MOQC is tested on nnUNet v1 segmentations only. The repositories `evaluations/` and `logs/` have results related just to that network.
+
+# :question: Get it run...maybe 
 Please, refer to the `tutorial.ipynb` for more info. And, as always, feel free to contact me for any question or suggestion by opening an issue if you find any bug or problem :smile:.
 
 
