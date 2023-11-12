@@ -235,8 +235,9 @@ class NiftiDataset(torch.utils.data.Dataset):
         self.is_segment = is_segment
         split_dir = self.root_dir.split('/')[:-2] if is_segment else self.root_dir.split('/')[:-1]
         print("Getting {} ids from {}".format(mode, os.path.join("/".join(split_dir),'saved_ids.npy')))
-        self.ids = np.load(os.path.join("/".join(split_dir),'saved_ids.npy'), allow_pickle=True).item().get(f'{mode}_ids') if self.mode is not 'all' else None
+        self.ids = np.load(os.path.join("/".join(split_dir),'saved_ids.npy'), allow_pickle=True).item().get(f'{mode}_ids') if self.mode != 'all' else None
         self.image_paths = self.get_image_paths()
+        if self.mode == 'all': self.ids = range(len(self.image_paths))
         
     def __len__(self):
         return len(self.image_paths)
