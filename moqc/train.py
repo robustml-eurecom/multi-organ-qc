@@ -101,8 +101,6 @@ if __name__ == '__main__':
                         default='data', help='Data folder.')
     parser.add_argument('-cf', '--config_file', type=str, 
                         default='moqc/models/config.yml', help='Configuration file.')
-    parser.add_argument('-o', '--output', type=str,
-                        default='reconstructions', help='Output folder.')
     parser.add_argument('--custom_params', type=bool, default=False, help='Enable custom parameters.')
     parser.add_argument('-og', '--organ', type=str, help='Selected organ.')
     parser.add_argument('-m', '--model', type=str, help='Model to be used.')
