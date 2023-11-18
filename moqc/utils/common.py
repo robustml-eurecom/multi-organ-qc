@@ -4,6 +4,13 @@ from skimage import io
 import plotly.graph_objects as go
 
 
+def get_dict_with_key(key, list_of_dicts):
+    for dictionary in list_of_dicts:
+        if key in dictionary:
+            return dictionary[key]
+    return None
+
+
 def find_non_matching_pairs(mask_paths, image_paths):
     """Takes a list of paths for masks and images, and returns the paths of each which do not have a matching pair in the other.
     Eg. If an image doesn't have a corresponding mask, then this image path will be returned. 

@@ -4,6 +4,11 @@ import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
 import nibabel as nib
+import glob
+from pathlib import Path
+import yaml
+
+from sklearn.model_selection import train_test_split
 
 from batchgenerators.augmentations.spatial_transformations import augment_spatial
 
@@ -79,7 +84,63 @@ def remove_non_common_files(dir1, dir2):
     for file in diff2:
         os.remove(os.path.join(dir2, file))
     print(f'Removed {len(files1)} files from {dir1}, and {len(diff1)} files from {dir2}.')
+
+
+def extract_organ_idx(last_idx_dict:dict, test_ids:list):
+    class_test_ids = {class_name: [] for class_name in last_idx_dict.keys()}
+    sorted_last_idx_dict = sorted(last_idx_dict.items(), key=lambda x: x[1])
+    for i, (class_name, class_idx) in enumerate(sorted_last_idx_dict):
+        start_idx = 0 if i == 0 else sorted_last_idx_dict[i - 1][1]
+        end_idx = class_idx
+        print(class_name, start_idx, end_idx)
+        class_test_ids[class_name] = test_ids[start_idx:end_idx]
+        
+        #class_test_ids[class_name] = [test_id - start_idx for test_id in class_test_ids[class_name]]
+    return class_test_ids
+
+
+def loso_split(data_path:str, mask_folder:str, split=[0.8, 0.1, 0.1], Force=False):
+    assert sum(split) == 1 , f"Given split doesn't sum to 1 (input was {split})"
+    assert len(split) == 3 , f"Given split doesn't have the right length : {len(split)} was given instead of 3"
+    assert all([0<=split[i]<=1 for i in range(len(split))]), f"Split values must all be between 0 and 1."
     
+    print('Splitting data following Leave One Subject Out (LOSO) method.')
+    files = glob.glob(os.path.join(data_path, mask_folder, '*'))
+    # Group the files by the first code
+    groups = {}
+    for i, filename in enumerate(files):
+        stem_file = Path(filename).stem.split('_slice_')
+        code = stem_file[0]
+        slice_id = Path(stem_file[1]).stem
+        if code not in groups: 
+            groups[code] = {'indices': [], 'slice_id': []}
+        groups[code]['indices'].append(i)
+        groups[code]['slice_id'].append(slice_id)
+    print('Found {} different patients.'.format(len(groups)))
+    
+    train_ids = []
+    val_ids = []
+    test_ids = []
+    train_codes, test_codes = train_test_split(list(groups.keys()), test_size=split[1], random_state=42)
+    train_codes, val_codes = train_test_split(train_codes, test_size=split[2], random_state=42)
+
+    print('Assigning indices...')    
+    train_ids = np.concatenate([groups[code]['indices'] for code in train_codes])
+    val_ids = np.concatenate([groups[code]['indices'] for code in val_codes])
+    test_ids = np.concatenate([groups[code]['indices'] for code in test_codes])
+    
+    saved_ids = {'train_ids': train_ids, 'val_ids': val_ids, 'test_ids': test_ids}
+    saved_ids_path = os.path.join(data_path, 'saved_ids.npy')
+    organ_codes_path = os.path.join(data_path, 'organ_codes.npy')
+    
+    if not os.path.exists(saved_ids_path) or Force == True: 
+        np.save(saved_ids_path, saved_ids)
+        np.save(organ_codes_path, groups)
+        print('Saved indices to {}.'.format(saved_ids_path))       
+        print('Saved patient codes to {}.'.format(organ_codes_path))
+    else:
+        raise FileExistsError("Ids already exist, to overwrite, use parameter 'Force=True'")
+    print('+-------------------------------------+') 
     
 def train_val_test(data_path:str, ids_range:range='default', split=[0.70, 0.15, 0.15], shuffle = True, Force=False):
     """
@@ -233,11 +294,23 @@ class NiftiDataset(torch.utils.data.Dataset):
         self.transform = transform
         self.mode = mode
         self.is_segment = is_segment
+        
         split_dir = self.root_dir.split('/')[:-2] if is_segment else self.root_dir.split('/')[:-1]
+        organ = split_dir[-1]
         print("Getting {} ids from {}".format(mode, os.path.join("/".join(split_dir),'saved_ids.npy')))
-        self.ids = np.load(os.path.join("/".join(split_dir),'saved_ids.npy'), allow_pickle=True).item().get(f'{mode}_ids') if self.mode != 'all' else None
+        self.ids = np.load(
+            os.path.join('/'.join(split_dir),'saved_ids.npy'), 
+            allow_pickle=True).item().get(f'{mode}_ids') if self.mode != 'all' else None
+        
         self.image_paths = self.get_image_paths()
-        if self.mode == 'all': self.ids = range(len(self.image_paths))
+        if self.mode == 'all': self.ids = list(range(len(self.image_paths)))
+        
+        self.organ_codes = np.load(os.path.join('/'.join(split_dir), 'organ_codes.npy'), allow_pickle=True).item()
+        with open(os.path.join('/'.join(split_dir), 'preprocessed_classes.yml'), 'r') as f: 
+            identifiers = yaml.safe_load(f)
+            self.identifier = identifiers[organ]['id']
+        self.patients = [{code:self.organ_codes[code]} for code in self.organ_codes.keys() 
+                         if self.organ_codes[code]['indices'][0] in self.ids and organ==self.identifier]        
         
     def __len__(self):
         return len(self.image_paths)
@@ -245,7 +318,6 @@ class NiftiDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         image_path = self.image_paths[idx]
         image = nib.load(image_path).get_fdata()
-        # Convert the NIfTI array to a PIL image
         classes = np.unique(image)[-1]
         pil_image = (image * 255/classes).astype(np.uint8)
         if self.transform:
@@ -357,7 +429,7 @@ class Patient(torch.utils.data.Dataset):
         return self.info["processed_shape"][0]
 
     def __getitem__(self, slice_id):
-        data = np.load(os.path.join(self.root_dir, "patient{:03d}.npy".format(self.id)))
+        data = np.load(os.path.join(self.root_dir, "patient{:05d}.npy".format(self.id)))
         sample = data#[slice_id]
         if self.transform:
             sample = self.transform(sample)

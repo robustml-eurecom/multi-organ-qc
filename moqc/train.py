@@ -14,11 +14,22 @@ from models.utils import plot_history, htlm_images
 from models.loss import BKGDLoss, BKMSELoss, SSIMLoss, GDLoss
 
 from utils.preprocess import transform_aug
-from utils.dataset import NiftiDataset, DataLoader, train_val_test
+from utils.dataset import NiftiDataset
 
+
+def extract_info_for_multitrain(args, data_path, config): 
+    with open(os.path.join(data_path, 'preprocessed_classes.yml'), 'r') as file:
+        try:
+            preprocessed_classes = yaml.safe_load(file)
+        except yaml.YAMLError as exc:
+            print(exc)
+    max_class = max([elem for sublist in [d['classes'] for d in preprocessed_classes.values()] for elem in sublist]) + 1
+    size = min([config["parameters"][args.model.lower()]["size"][og] for og in args.organ])
+    batch_size = max([config["parameters"][args.model.lower()]["batch_size"][og] for og in args.organ])
+    return max_class, size, batch_size
 
 def main(args):
-    DATA_PATH = os.path.join(args.data, args.organ)
+    DATA_PATH = os.path.join(args.data, '_'.join(args.organ)) if len(args.organ) > 1 else os.path.join(args.data, args.organ[0])
     print("+-------------------------------------+")
     print(f'Running in the following path: {DATA_PATH}.')
     print("+-------------------------------------+")
@@ -32,7 +43,7 @@ def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device selected: {device}.")
     
-    if not os.path.exists(os.path.join(DATA_PATH, "saved_ids.npy")): _,_,_ = train_val_test(data_path=DATA_PATH, split=[.8, .1, .1]) 
+    assert os.path.exists(os.path.join(DATA_PATH, "saved_ids.npy")), "No saved ids were found. Please run the data_preparation script first."
 
     prepro_path = os.path.join(DATA_PATH, "preprocessed")
     
@@ -43,7 +54,9 @@ def main(args):
             allow_pickle=True).item()
     else:
         optimal_parameters = parameters
-        if "in_channels" not in optimal_parameters: optimal_parameters["in_channels"] = optimal_parameters["out_channels"] = optimal_parameters["classes"][args.organ]
+        optimal_parameters['classes'], optimal_parameters['size'], optimal_parameters['batch_size'] = extract_info_for_multitrain(args, DATA_PATH, config)
+        
+        if "in_channels" not in optimal_parameters: optimal_parameters["in_channels"] = optimal_parameters["out_channels"] = optimal_parameters["classes"]
         optimal_parameters["functions"] = {
             "BKGDLoss": BKGDLoss(),
             "GDLoss": GDLoss(),
@@ -54,8 +67,7 @@ def main(args):
 
     assert optimal_parameters is not None, "Be sure to continue with a working set of hyperparameters"
 
-    transform, transform_augmentation = transform_aug(size=parameters["size"][args.organ], num_classes=parameters["in_channels"], model=args.model.lower())
-    
+    transform, _ = transform_aug(size=optimal_parameters["size"], num_classes=optimal_parameters["in_channels"], model=args.model.lower())  
 
     train_dataset = NiftiDataset(DATA_PATH+'/structured', transform=transform, mode='train')
     val_dataset = NiftiDataset(DATA_PATH+'/structured', transform=transform, mode='val')
@@ -64,12 +76,12 @@ def main(args):
         model = DCGAN(**optimal_parameters).to(device)
     elif args.model.lower() == "cae": 
         keys = config['run_params']['keys'] 
-        if optimal_parameters['classes'][args.organ] > 2: keys += [f'K{i}' for i in range(2, optimal_parameters['classes'][args.organ])]
+        if optimal_parameters['classes'] > 2: keys += [f'K{i}' for i in range(2, optimal_parameters['classes'])]
         DA = optimal_parameters["DA"]
         model = ConvAutoencoder(keys=keys, **optimal_parameters).to(device)
     elif args.model.lower() == "small_cae": 
         keys = config['run_params']['keys'] 
-        if optimal_parameters['classes'][args.organ] > 2: keys += [f'K{i}' for i in range(2, optimal_parameters['classes'][args.organ])]
+        if optimal_parameters['classes'] > 2: keys += [f'K{i}' for i in range(2, optimal_parameters['classes'])]
         DA = optimal_parameters["DA"]
         model = SmallConvAutoencoder(keys=keys, **optimal_parameters).to(device)
     print(model)
@@ -85,8 +97,8 @@ def main(args):
           
     history, img_list = model.training_routine(
                 range(start, parameters["epochs"]),
-                torch.utils.data.DataLoader(train_dataset, batch_size=parameters['batch_size'][args.organ], shuffle=True, num_workers=8),
-                torch.utils.data.DataLoader(val_dataset, batch_size=parameters['batch_size'][args.organ], shuffle=False, num_workers=8),
+                torch.utils.data.DataLoader(train_dataset, batch_size=optimal_parameters['batch_size'], shuffle=True, num_workers=8),
+                torch.utils.data.DataLoader(val_dataset, batch_size=optimal_parameters['batch_size'], shuffle=False, num_workers=8),
                 ckpt_folder=os.path.join(DATA_PATH, f"checkpoints/{args.model.lower()}"),
             )
     
@@ -102,7 +114,8 @@ if __name__ == '__main__':
     parser.add_argument('-cf', '--config_file', type=str, 
                         default='moqc/models/config.yml', help='Configuration file.')
     parser.add_argument('--custom_params', type=bool, default=False, help='Enable custom parameters.')
-    parser.add_argument('-og', '--organ', type=str, help='Selected organ.')
+    parser.add_argument('-og', '--organ', metavar='S', type=str, 
+                        nargs='+',help='a list of organs')
     parser.add_argument('-m', '--model', type=str, help='Model to be used.')
     parser.add_argument('--verbose', action='store_false', help='Enable verbose mode.')
 

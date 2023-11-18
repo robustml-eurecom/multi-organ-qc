@@ -6,6 +6,9 @@ import numpy as np
 import nibabel as nib
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import yaml
+import glob
+from pathlib import Path
 
 from typing import Callable
 from utils.common import ignore_directories
@@ -13,9 +16,72 @@ from utils.common import ignore_directories
 import torchvision
 from utils.dataset import AddPadding, CenterCrop, OneHot, ToTensor, MirrorTransform, SpatialTransform
 
-
 from scipy.ndimage import binary_fill_holes
 from batchgenerators.augmentations.utils import resize_segmentation
+
+
+def balance_data(paths, split=True):
+    files_to_extract = {path: len(glob.glob(os.path.join(path, '*'))) for path in paths}
+    min_files = min(files_to_extract.values())
+    if split: files_to_extract = {path: min(2 * min_files, count) for path, count in files_to_extract.items()}
+    return files_to_extract
+
+def merge_organ_folders(args):
+    """
+    This function merges multiple organ folders into a single folder.
+
+    Parameters:
+    - data_path (str): The path to the directory containing the organ folders.
+    - organs (list): A list of organ folder names to be merged.
+
+    The function creates a new directory in `data_path` named after the organs to be merged, separated by underscores.
+    
+    If an organ directory does not exist, the function prints a message and continues with the next organ.
+
+    Returns:
+    str: The path to the output directory containing the merged organ images.
+    """
+    
+    output_path = os.path.join(args.data, '_'.join(args.organ)) if len(args.organ) > 1 else os.path.join(args.data, args.organ[0])
+    os.makedirs(os.path.join(output_path, args.mask_folder), exist_ok=True)
+    print('\n+-------------------------------------+')
+    if len(args.organ) > 1: print('Multi-organ dataset detected. Merging organs into a single folder: ', output_path)
+    
+    class_counter = 0
+    organ_classes = {organ: {'classes': None, 'id': None} for organ in args.organ}
+    organ_dirs = [os.path.join(args.data, organ) for organ in args.organ]
+    label_dirs = [os.path.join(organ_dir, args.mask_folder) for organ_dir in organ_dirs]
+    files_to_extract = balance_data(label_dirs, args.split)
+    assert list(files_to_extract.values())[0] > 0, "No segmentations were found."
+    print('Balancing data. Extracting {} files from each organ.'.format(files_to_extract))
+    
+    for i, organ in enumerate(args.organ):
+        max_actual_data = 0
+        class_counter = 0
+        organ_dir = organ_dirs[i]
+        if not os.path.exists(organ_dir):
+            print(f"Organ directory {organ_dir} does not exist.")
+            continue
+        for filename in tqdm(os.listdir(label_dirs[i])[:files_to_extract[label_dirs[i]]], desc='Getting balanced masks'):
+            file_path = os.path.join(organ_dir, args.mask_folder, filename)
+            organ_id = Path(file_path).stem.split('_')[0]
+            img = nib.load(file_path)
+            data = img.get_fdata()
+            max_actual_data = max(max_actual_data, np.max(data))
+
+            new_img = nib.Nifti1Image(data, img.affine, img.header)
+            nib.save(new_img, os.path.join(output_path, args.mask_folder, filename))
+            
+        class_counter += int(max_actual_data)
+        organ_classes[organ]['classes'] = list(range(class_counter + 1))
+        organ_classes[organ]['id'] = organ_id
+    
+    with open(os.path.join(output_path, 'preprocessed_classes.yml'), 'a') as file:
+        yaml.dump(organ_classes, file)
+    print('Organ(s)\' updated classes: ', organ_classes)
+    print('+-------------------------------------+')
+    return output_path
+
 
 def find_segmentations(root_dir:os.PathLike, keywords: list, absolute: bool = False) -> list :
     """
@@ -127,7 +193,7 @@ def structure_dataset(data_path:str,
 
     Note
     ----
-        This limit of 10000 is solely dued to how the names are formatted (here :04d ; see source code). \n
+        This limit of 100000 is solely dued to how the names are formatted (here :05d ; see source code). \n
         The limit can be removed if the patient folder names are adjusted throughout the code.
 
     """
@@ -144,14 +210,14 @@ def structure_dataset(data_path:str,
     destination_folder = os.path.join(data_path, destination_folder)
 
     os.makedirs(destination_folder) if not os.path.exists(destination_folder) else None
-    mask_paths = mask_paths[:10000]
+    mask_paths = mask_paths[:100000]
     
     mask_paths.sort()
     destination_folder = os.path.join(os.getcwd(), destination_folder)
     os.makedirs(destination_folder) if not os.path.exists(destination_folder) else None
 
 
-    for i in tqdm(range(len(mask_paths)), desc= 'Mask prepro Progress bar'):
+    for i in tqdm(range(len(mask_paths)), desc= 'Mask preprocessing'):
         mask_path = mask_paths[i]
         image_path = image_paths[i] if image_paths is not None else None
         convert_mask = True if mask_path.endswith(".nii") else False
@@ -159,7 +225,7 @@ def structure_dataset(data_path:str,
                 convert_image = True if image_path.endswith(".nii") else False
         else : convert_image = False
         # Creating the patient folder
-        patient_target_folder = os.path.join(destination_folder, "patient{:04d}".format(i))
+        patient_target_folder = os.path.join(destination_folder, "patient{:05d}".format(i))
         os.makedirs(patient_target_folder) if not os.path.exists(patient_target_folder) else None
 
         # Changing target names according to .nii or .nii.gz extensions
@@ -240,7 +306,6 @@ def generate_patient_info(data_path:str,
     dataset_folder = os.path.join(data_path, dataset_folder)
 
     patients_list = sorted(os.listdir(dataset_folder))
-    print(len(patients_list))
     if patients_list[-1] == "patient_info.npy" : patients_list.pop(-1)
     if patients_list[0] == "optimal_parameters.npy" : patients_list.pop(0)
 
@@ -248,8 +313,8 @@ def generate_patient_info(data_path:str,
     for id in skip:
         patient_ids.remove(id) # removing absent images or masks
     patient_info = {}
-    for id in tqdm(range(len(patient_ids)), desc = 'Generate info progress Bar'):
-        patient_folder = os.path.join(dataset_folder, 'patient{:04d}'.format(id))
+    for id in tqdm(range(len(patient_ids)), desc = 'Generating masks info'):
+        patient_folder = os.path.join(dataset_folder, 'patient{:05d}'.format(id))
         image = nib.load(os.path.join(patient_folder, fileName))
         patient_info[id] = {} # Initialising the dict for specified id
         patient_info[id]["shape"] = image.get_fdata().shape
@@ -260,7 +325,7 @@ def generate_patient_info(data_path:str,
         patient_info[id]["header"] = image.header
         patient_info[id]["affine"] = image.affine
         if(id%verbose_rate == 0 and verbose) : 
-            print("Just processed patient {PATIENT_ID:04d} out of {TOTAL:04d}".format(PATIENT_ID = id, TOTAL=len(patient_ids)))
+            print("Just processed patient {PATIENT_ID:05d} out of {TOTAL:05d}".format(PATIENT_ID = id, TOTAL=len(patient_ids)))
 
     patient_info_folder = os.path.join(data_path, 'preprocessed')
     if not os.path.exists(patient_info_folder):
@@ -348,7 +413,7 @@ def preprocess(data_path:str,
     """
     folder_in = os.path.join(data_path, 'structured')
     folder_out = os.path.join(data_path, 'preprocessed'if alter_image==None else 'measures/preprocessed_model') 
-    get_patient_folder = lambda folder, id: os.path.join(folder, 'patient{:04d}'.format(id))
+    get_patient_folder = lambda folder, id: os.path.join(folder, 'patient{:05d}'.format(id))
     get_fname = lambda : "mask.nii.gz"
 
     # Getting patient_info
@@ -381,7 +446,7 @@ def preprocess(data_path:str,
             for i in range(np.shape(sample)[2]):
                 sample[:,:,i] = alter_image(sample[:,:,i])
 
-            folder_out_patient = os.path.join(data_path,'measures/structured_model', f'patient{id:04d}')
+            folder_out_patient = os.path.join(data_path,'measures/structured_model', f'patient{id:05d}')
             if not os.path.exists(folder_out_patient) : os.makedirs(folder_out_patient)
 
             nib.save(
@@ -401,9 +466,9 @@ def preprocess(data_path:str,
         patient_info[id]["processed_shape"] = processed_shape
         images.append(image)
         images = np.vstack(images)
-        np.save(os.path.join(folder_out, "patient{:04d}".format(id)), images.astype(np.float32))
+        np.save(os.path.join(folder_out, "patient{:05d}".format(id)), images.astype(np.float32))
         if(verbose and id%10 == 0) : 
-            print("Finished processing patient {:04d}".format(id))
+            print("Finished processing patient {:05d}".format(id))
     np.save(os.path.join(folder_out, "patient_info"), patient_info)
 
 

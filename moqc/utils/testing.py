@@ -3,14 +3,16 @@ from medpy.metric import binary
 import os
 import nibabel as nib
 from typing import Callable
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 import cv2
 import pandas as pd
+import yaml
 
 import torch
 import torch.nn as nn
 import torchvision
+
+import matplotlib.pyplot as plt
 import seaborn as sns
 from IPython.display import display
 from batchgenerators.augmentations.utils import resize_segmentation
@@ -121,10 +123,10 @@ def testing(ae, data_path:os.PathLike,
             prediction = prediction.cpu().numpy(),
             reconstruction = reconstruction.cpu().numpy()
             #reconstruction = postprocess_image(reconstruction, patient_info[id], current_spacing)
-            folder_out_patient = os.path.join(folder_out, 'reconstructions', "patient{:04d}".format(id))
+            folder_out_patient = os.path.join(folder_out, 'reconstructions', "patient{:05d}".format(id))
             if compute_results :
-                results["patient{:04d}".format(id)] = evaluate_metrics(
-                    nib.load(os.path.join(folder_predictions, f"patient{id:04d}", "mask.nii.gz")).get_fdata(),
+                results["patient{:05d}".format(id)] = evaluate_metrics(
+                    nib.load(os.path.join(folder_predictions, f"patient{id:05d}", "mask.nii.gz")).get_fdata(),
                     reconstruction,
                     keys = None
                 )
@@ -199,6 +201,26 @@ def generate_testing_set(ae:nn.Module , data_path:os.PathLike, alter_image:Calla
         compute_results=False)
 
 
+def align_patients(data_path:str, mode, organ):
+    saved_ids = np.load(os.path.join(data_path, 'saved_ids.npy'), allow_pickle=True).item()
+    organ_codes = np.load(os.path.join(data_path, 'organ_codes.npy'), allow_pickle=True).item()
+    with open(os.path.join(data_path, 'preprocessed_classes.yaml')) as file: organs = yaml.safe_load(file)
+    
+    if len(organs) > 1: print('Detected multiple organs. Using: ', organ)
+    
+    organ_data = organs[organ]
+    organ_id = organ_data['id']
+    patient_codes = [code for code in organ_codes.keys() if code.startswith(organ_id)]
+    
+    selected_ids_dict = {}
+    for code in patient_codes:
+        indices = organ_codes[code]['indices']
+        if indices not in saved_ids[f'{mode}_ids']: continue
+        selected_ids_dict[code] = indices
+
+    return selected_ids_dict
+
+
 class Count_nan():
     def __init__(self):
         self.actual_nan = 0
@@ -240,9 +262,9 @@ def compute_correlation_results(data_path, model, test_ids = 'default', measures
     
     for id in tqdm(test_ids, desc="Generating results: "):
         # Retrieving the paths of all the images to compute results from
-        path_GT = os.path.join(data_path, 'structured/patient{:04d}/mask.nii.gz'.format(id))
-        path_model_GT = os.path.join(data_path, '{}/structured/patient{:04d}/mask.nii.gz'.format(model, id))
-        path_model_pGT = os.path.join(data_path, '{}/reconstructions/patient{:04d}/mask.nii.gz'.format(model, id))
+        path_GT = os.path.join(data_path, 'structured/patient{:05d}/mask.nii.gz'.format(id))
+        path_model_GT = os.path.join(data_path, '{}/structured/patient{:05d}/mask.nii.gz'.format(model, id))
+        path_model_pGT = os.path.join(data_path, '{}/reconstructions/patient{:05d}/mask.nii.gz'.format(model, id))
         
         # Retrieving the images
         model_GT = nib.load(path_model_GT).get_fdata()
@@ -387,7 +409,7 @@ def plot_correlation(df_results, args):
     # Show the figure
     plt.suptitle("Plotted Correlation")
     plt.tight_layout()
-    plt.savefig(f'logs/{args.model.lower()}_{args.segmentations.lower()}_{args.organ.lower()}_correlation_plot.jpg')
+    plt.savefig(f'logs/{args.model.lower()}_{args.segmentations.lower()}_{args.organ[0].lower()}_correlation_plot.jpg')
 
   
 def display_plots(plots):

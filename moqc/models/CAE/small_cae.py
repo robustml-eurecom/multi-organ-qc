@@ -14,7 +14,6 @@ from models.loss import Loss
 from models.metrics import Metrics
 
 import warnings
-
 #use gpu if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -110,7 +109,7 @@ class SmallConvAutoencoder(nn.Module):
             self.decoders.append(decoder_block)
 
         self.final_conv = nn.Sequential(
-            nn.ConvTranspose2d(in_channels=16, out_channels=kwargs["out_channels"], kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(in_channels=channel_config[-1], out_channels=kwargs["out_channels"], kernel_size=4, stride=2, padding=1),
             nn.Softmax(dim=1)
         )
     

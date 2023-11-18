@@ -3,17 +3,20 @@ import numpy as np
 import argparse
 
 from utils.preprocess import (
+    merge_organ_folders,
     generate_patient_info,
     preprocess,
     structure_dataset, 
     find_segmentations, 
     find_pairs
     )
+from utils.dataset import loso_split
 
 def main(args):
-    DATA_PATH = os.path.join(args.data, args.organ) if args.organ else args.data
-    main_path = os.path.join(args.data, args.organ, args.mask_folder) if args.organ else os.path.join(args.data, args.mask_folder)
-    print("+-------------------------------------+")
+    DATA_PATH = merge_organ_folders(args) if args.organ else args.data
+    if args.split: loso_split(data_path=DATA_PATH, mask_folder=args.mask_folder, Force=True) 
+    
+    main_path = os.path.join(DATA_PATH, args.mask_folder) if args.organ else os.path.join(args.data, args.mask_folder)
     print(f'Running in the following path: {DATA_PATH}. Data will be retrieved from {main_path}.')  
     print("+-------------------------------------+")
     
@@ -59,8 +62,11 @@ if __name__ == '__main__':
                         default='structured/', help='Output folder of the structured dataset.')
     parser.add_argument('-pf', '--pair_folder', type=bool,
                         default=False, help='Enable pair folder.')
-    parser.add_argument('-og', '--organ', type=str, help='Selected organ.')
-    parser.add_argument('-k', '--keyword', type=list, help='Keyword to identify your segmentations.')
+    parser.add_argument('-og', '--organ', metavar='S', type=str, 
+                        nargs='+',help='a list of organs')
+    parser.add_argument('-k', '--keyword', metavar='S', type=str, 
+                        nargs='+',help='a list of keywords')
+    parser.add_argument('-s', '--split', action='store_false', help='Disable split mode.')
     parser.add_argument('--verbose', action='store_false', help='Enable verbose mode.')
     
     args = parser.parse_args()
