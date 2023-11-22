@@ -221,6 +221,55 @@ def align_patients(data_path:str, mode, organ):
     return selected_ids_dict
 
 
+class SliceInferer():
+    def __init__(self, data_path:str, out_folder:str, mode:str):
+        self.data_path = data_path
+        self.out_folder = out_folder
+        self.mode = mode
+    
+    def __call__(self, patient, args):
+        if not os.path.exists(self.out_folder): 
+            self.out_folder = {
+                '2d': os.path.join(self.out_folder, '2d'),
+                '3d': os.path.join(self.out_folder, '3d'),
+            }
+        os.makedirs(self.out_folder['2d'])
+        os.makedirs(self.out_folder['3d'])
+        self.slice_and_infer(patient, args)
+    
+    def save_2d(self, img, img_array, name):
+        display_image(img, self.out_folder['2d'], name)
+        img_array = np.concatenate([img_array, img], axis=-1) if len(img_array) > 0 else img
+        return img_array
+    
+    def save_3d(self, img_array, name):
+        nib.save(nib.Nifti1Image(img_array, np.eye(4), dtype=np.int8), os.path.join(self.out_folder['3d'], name))
+     
+    def slice_and_infer(self, patient, args):
+        prediction_3d, reconstruction_3d, aberration_3d = [], [], []
+        
+        for slice, slice_real in zip(patient['indices'], patient['slice_id']):
+            
+            prediction = nib.load(os.path.join(
+                self.data_path, 
+                "{}/structured/patient{:05d}/mask.nii.gz".format(args.segmentations, slice)
+                )).get_fdata()
+            
+            reconstruction = nib.load(os.path.join(
+                self.data_path,
+                "{}/reconstructions/patient{:05d}/mask.nii.gz".format(args.segmentations, slice)
+                )).get_fdata().squeeze().transpose(2,1,0).argmax(axis=-1)    
+            
+            prediction_3d = self.save_2d(prediction, prediction_3d, f'prediction_{slice:05d}_{slice_real:03d}.png')
+            reconstruction_3d = self.save_2d(np.expand_dims(reconstruction, -1), reconstruction_3d, f'reconstruction_{slice:05d}_{slice_real:03d}.png')
+            aberration = display_difference(prediction, reconstruction, self.out_folder['2d'], f'aberration_mask_{slice:05d}_{slice_real:03d}.png')
+            aberration_3d = np.concatenate([aberration_3d, aberration], axis=2) if len(aberration_3d) > 0 else aberration
+            
+        self.save_3d(prediction_3d, 'prediction.nii.gz')
+        self.save_3d(reconstruction_3d, 'reconstruction.nii.gz')
+        self.save_3d(aberration_3d, 'aberration.nii.gz')
+
+
 class Count_nan():
     def __init__(self):
         self.actual_nan = 0
@@ -464,8 +513,9 @@ def display_difference(prediction, reference, out_folder, name):
     class_ref, class_pred = np.unique(reference)[-1], np.unique(prediction)[-1]
     pred_gray = (prediction * 255/class_pred).astype(np.uint8)
     dim = pred_gray.shape[:2]
-    ref_gray = CenterCrop(dim)((AddPadding(dim)(reference * 255/class_ref).astype(np.uint8))).transpose(1,2,0)
+    ref_gray = CenterCrop(dim)((AddPadding(dim)(reference * 255/class_ref).astype(np.uint8))).transpose(2,1,0)
+    
     diff = cv2.absdiff(pred_gray, ref_gray)
-    # Create an all-zero image with the same shape
     red_diff_image = cv2.merge([np.zeros_like(diff), np.zeros_like(diff), diff])
     cv2.imwrite(os.path.join(out_folder, name), red_diff_image)
+    return np.expand_dims(diff, -1)

@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import yaml
 import glob
 from pathlib import Path
-
+from natsort import natsorted
 from typing import Callable
 from utils.common import ignore_directories
 
@@ -62,7 +62,7 @@ def merge_organ_folders(args):
         if not os.path.exists(organ_dir):
             print(f"Organ directory {organ_dir} does not exist.")
             continue
-        for filename in tqdm(os.listdir(label_dirs[i])[:files_to_extract[label_dirs[i]]], desc='Getting balanced masks'):
+        for filename in tqdm(natsorted(os.listdir(label_dirs[i])[:files_to_extract[label_dirs[i]]]), desc='Getting balanced masks'):
             file_path = os.path.join(organ_dir, args.mask_folder, filename)
             organ_id = Path(file_path).stem.split('_')[0]
             img = nib.load(file_path)

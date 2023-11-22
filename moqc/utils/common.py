@@ -6,8 +6,7 @@ import plotly.graph_objects as go
 
 def get_dict_with_key(key, list_of_dicts):
     for dictionary in list_of_dicts:
-        if key in dictionary:
-            return dictionary[key]
+        if key in dictionary: return dictionary[key]
     return None
 
 

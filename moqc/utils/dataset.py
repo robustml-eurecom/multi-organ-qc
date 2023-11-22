@@ -7,83 +7,86 @@ import nibabel as nib
 import glob
 from pathlib import Path
 import yaml
-
+from pathlib import Path
+from natsort import natsorted
 from sklearn.model_selection import train_test_split
-
 from batchgenerators.augmentations.spatial_transformations import augment_spatial
 
 
-def select_valid_imgs(data_path:str, save_path:str, inter_slice_range:list=[1, 200], non_zero_thres:float=0.1):
+class SliceDetector(object):
     """
-    Select and save valid slices from 3D MRI label and segmentation images as 2D NIfTI images.
+    A class used to detect and save non-empty slices from 3D medical images.
 
-    This function processes 3D MRI label and segmentation images, selecting valid slices based on a non-zero threshold
-    and a specified range of slices. It then saves the selected slices as 2D NIfTI images.
+    Attributes
+    ----------
+    data_path : str
+        a string representing the path to the directory containing the 3D images
+    save_path : str
+        a string representing the path to the directory where the slices will be saved
+    inter_slice_range : tuple, optional
+        a tuple containing two integers representing the start and end indices of the slices to be selected
+    non_zero_thres : float, optional
+        a float representing the threshold for considering a slice as non-empty
 
-    Args:
-    data_path (str): Path to the directory containing NIfTI files.
-    save_path (str): Path to the directory where the selected slices will be saved.
-    inter_slice_range (list): A list specifying the range of slices to consider (inclusive). Default is [5, 14].
-    non_zero_thres (float): The threshold for considering a slice as valid based on the sum of non-zero values.
-                           Default is 0.1.
-
-    Raises:
-    AssertionError: If any of the provided paths do not exist, or the images are 2D-based (not 3D).
-
-    Note:
-    - Images should be 3D. Images with only 2D slices are not processed.
-    - Valid slices are determined based on the non-zero threshold.
-
-    """  
-    assert os.path.exists(data_path), f"{data_path} doesn't exist"
-    to_save = os.path.join(save_path) 
-    if not os.path.exists(to_save): os.makedirs(to_save)
-    
-    for label_f in os.listdir(data_path):
-        if (".nii" in label_f):
-            max_slice = inter_slice_range[1]
-            img = nib.load(os.path.join(data_path, label_f))
-            new_img = img.get_fdata().transpose(2, 1, 0)
-            assert img.shape[0] > 1, f"Label and segmentation shapes are 2D-based. Please select a folder containing 3D images."
-            
-            if new_img.shape[0] < inter_slice_range[1]: max_slice = new_img.shape[0]
-            for slice in range(inter_slice_range[0], max_slice):
-                #print(np.sum(new_img[slice])/np.prod(new_img[slice].shape))
-                if non_zero_thres is None or np.sum(new_img[slice])/np.prod(new_img[slice].shape) > non_zero_thres:
-                    nib.save(nib.Nifti1Image(np.expand_dims(new_img[slice], -1), img.affine), os.path.join(to_save, label_f.replace('.nii', f'_slice_{slice}.nii')))
-    
-# Get the list of files in each directory
-def remove_non_common_files(dir1, dir2):
+    Methods
+    -------
+    __call__():
+        Processes the 3D images and saves the non-empty slices to the save_path directory.
+    remove_non_common_files(dir1, dir2):
+        Removes files that are not common between two directories.
     """
-    This function removes files that are not common between two directories.
 
-    It first lists all files in each directory, then identifies files that are present in one directory but not the other.
-    These "non-common" files are then removed from their respective directories.
+    def __init__(self, inter_slice_range=None, non_zero_thres=None):
+        self.inter_slice_range = inter_slice_range
+        self.non_zero_thres = non_zero_thres
 
-    Parameters:
-    dir1 (str): The path to the first directory.
-    dir2 (str): The path to the second directory.
+    def __call__(self, data_path, save_path):
+        assert os.path.exists(data_path), f"{data_path} doesn't exist"
+        to_save = os.path.join(save_path) 
+        if not os.path.exists(to_save): os.makedirs(to_save)
+        
+        for label_f in os.listdir(data_path):
+            if (".nii" in label_f):
+                img = nib.load(os.path.join(data_path, label_f))
+                np_img = img.get_fdata()
+                
+                if self.inter_slice_range is not None:
+                    start, end = self.inter_slice_range
+                    selected_slices = np_img[:, :, start:end]
+                else:
+                    non_zero_slices = np.any(np_img, axis=(0, 1))
+                    selected_slices = np_img[:, :, non_zero_slices]
+                    
+                for i,slice in enumerate(non_zero_slices):
+                    if slice:
+                        slice_img = np_img[:, :, i]
+                        if self.non_zero_thres is None or np.sum(slice_img) / np.prod(slice_img.shape) > self.non_zero_thres:
+                            nib.save(nib.Nifti1Image(
+                                np.expand_dims(slice_img, -1), img.affine), 
+                                     os.path.join(to_save, label_f.replace('.nii', '_slice_{:03d}.nii'.format(i))))
+    @staticmethod
+    def remove_non_common_files(dir1, dir2):
+        """
+        Removes files that are not common between two directories.
 
-    Returns:
-    None
-
-    Note:
-    This function performs deletion of files. Use with caution, as this operation is not reversible.
-    """
-    
-    files1 = set(os.listdir(dir1))
-    files2 = set(os.listdir(dir2))
-
-    # Find the differences between the two sets of files
-    diff1 = files1.difference(files2)
-    diff2 = files2.difference(files1)
-    # Remove the files that are not common between the two directories
-    for file in diff1:
-        os.remove(os.path.join(dir1, file))
-
-    for file in diff2:
-        os.remove(os.path.join(dir2, file))
-    print(f'Removed {len(files1)} files from {dir1}, and {len(diff1)} files from {dir2}.')
+        Parameters
+        ----------
+        dir1 : str
+            The path to the first directory.
+        dir2 : str
+            The path to the second directory.
+        """
+        files1 = set(os.listdir(dir1))
+        files2 = set(os.listdir(dir2))
+        non_common_files = files1.symmetric_difference(files2)
+        for file in non_common_files:
+            if file in files1:
+                os.remove(os.path.join(dir1, file))
+            if file in files2:
+                os.remove(os.path.join(dir2, file))
+        print(f"Removed {len(non_common_files)} non-common files.")
+        assert len(os.listdir(dir1)) == len(os.listdir(dir2))
+        assert os.listdir(dir1).sort() == os.listdir(dir2).sort()
 
 
 def extract_organ_idx(last_idx_dict:dict, test_ids:list):
@@ -108,10 +111,10 @@ def loso_split(data_path:str, mask_folder:str, split=[0.8, 0.1, 0.1], Force=Fals
     files = glob.glob(os.path.join(data_path, mask_folder, '*'))
     # Group the files by the first code
     groups = {}
-    for i, filename in enumerate(files):
+    for i, filename in enumerate(natsorted(files)):
         stem_file = Path(filename).stem.split('_slice_')
         code = stem_file[0]
-        slice_id = Path(stem_file[1]).stem
+        slice_id = int((Path(stem_file[1]).stem).replace(".nii", ""))
         if code not in groups: 
             groups[code] = {'indices': [], 'slice_id': []}
         groups[code]['indices'].append(i)
@@ -121,8 +124,8 @@ def loso_split(data_path:str, mask_folder:str, split=[0.8, 0.1, 0.1], Force=Fals
     train_ids = []
     val_ids = []
     test_ids = []
-    train_codes, test_codes = train_test_split(list(groups.keys()), test_size=split[1], random_state=42)
-    train_codes, val_codes = train_test_split(train_codes, test_size=split[2], random_state=42)
+    train_codes, test_codes = train_test_split(list(groups.keys()), test_size=split[1], shuffle=False)
+    train_codes, val_codes = train_test_split(train_codes, test_size=split[2], shuffle=False)
 
     print('Assigning indices...')    
     train_ids = np.concatenate([groups[code]['indices'] for code in train_codes])
@@ -294,6 +297,7 @@ class NiftiDataset(torch.utils.data.Dataset):
         self.transform = transform
         self.mode = mode
         self.is_segment = is_segment
+        self.patients = []
         
         split_dir = self.root_dir.split('/')[:-2] if is_segment else self.root_dir.split('/')[:-1]
         organ = split_dir[-1]
@@ -305,12 +309,19 @@ class NiftiDataset(torch.utils.data.Dataset):
         self.image_paths = self.get_image_paths()
         if self.mode == 'all': self.ids = list(range(len(self.image_paths)))
         
-        self.organ_codes = np.load(os.path.join('/'.join(split_dir), 'organ_codes.npy'), allow_pickle=True).item()
+        self.organ_codes = np.load(
+            os.path.join('/'.join(split_dir), 'organ_codes.npy'), 
+            allow_pickle=True).item()
+        
         with open(os.path.join('/'.join(split_dir), 'preprocessed_classes.yml'), 'r') as f: 
             identifiers = yaml.safe_load(f)
-            self.identifier = identifiers[organ]['id']
-        self.patients = [{code:self.organ_codes[code]} for code in self.organ_codes.keys() 
-                         if self.organ_codes[code]['indices'][0] in self.ids and organ==self.identifier]        
+            self.identifiers = [v['id'] for v in identifiers.values()]
+            print(f"Organs' identifiers are {self.identifiers}")
+        
+        assert len(organ.split('_')) == len(self.identifiers), f"Number of organs ({len(organ.split('_'))}) doesn't match number of identifiers ({len(self.identifiers)})"
+        for identifier in self.identifiers:
+            self.patients.append([{code:self.organ_codes[code]} for code in self.organ_codes.keys() 
+                            if self.organ_codes[code]['indices'][0] in self.ids and code.split('_')[0]==identifier])        
         
     def __len__(self):
         return len(self.image_paths)
